@@ -3,9 +3,9 @@
 ManifestDPIAware true
 
 ; HM NIS Edit Wizard helper defines
-!define PRODUCT_NAME "OpenUtau"
+!define PRODUCT_NAME "OpenUtau_microtonal"
 !define PRODUCT_PUBLISHER "stakira"
-!define PRODUCT_WEB_SITE "https://www.openutau.com"
+!define PRODUCT_WEB_SITE "https://github.com/takunnma5286/OpenUtau_microtonal"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
