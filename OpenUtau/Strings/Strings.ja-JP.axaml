@@ -65,6 +65,12 @@
   <system:String x:Key="dialogs.voicecolorremapping">Voice colorの再マッピング</system:String>
   <system:String x:Key="dialogs.voicecolorremapping.caption">このトラック内のすべての音符に適用されます：</system:String>
 
+  <system:String x:Key="menu.file.importmicrotonalmidi">微分音MIDIをインポート...</system:String>
+  <system:String x:Key="dialog.importmicrotonalmidi.title">微分音MIDIのインポート</system:String>
+  <system:String x:Key="dialog.importmicrotonalmidi.message">各MIDIチャンネルの音程オフセットを設定します。</system:String>
+  <system:String x:Key="dialog.importmicrotonalmidi.channel">チャンネル</system:String>
+  <system:String x:Key="dialog.importmicrotonalmidi.offset">音程オフセット（ステップ）</system:String>
+
   <system:String x:Key="errors.caption">エラー</system:String>
   <system:String x:Key="errors.details">エラーの詳細</system:String>
   <system:String x:Key="errors.diffsinger.downloadvocoder">ボコーダー "{0}" のロードに失敗しました。未インストールの場合、以下のURLからダウンロードしてください：{1}</system:String>
@@ -640,4 +646,13 @@
   <system:String x:Key="welcome.recent">最近使用したファイル</system:String>
   <system:String x:Key="welcome.start">開始</system:String>
   <system:String x:Key="welcome.template">テンプレート</system:String>
+
+  <system:String x:Key="menu.project.settings">プロジェクトの設定...</system:String>
+
+  <system:String x:Key="pjsettings.div">平均律(オクターブあたりの分割数)</system:String>
+  <system:String x:Key="pjsettings.pitch">基準ピッチ (Hz)</system:String>
+  <system:String x:Key="pjsettings.note">基準音階番号</system:String>
+  <system:String x:Key="pjsettings.cancel">キャンセル</system:String>
+  <system:String x:Key="pjsettings.apply">適用</system:String>
+  <system:String x:Key="pjsettings.caption">プロジェクトの設定</system:String>
 </ResourceDictionary>

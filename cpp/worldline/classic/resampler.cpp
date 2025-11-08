@@ -159,9 +159,8 @@ void Resampler::ApplyEffects(std::vector<std::vector<double>>* tension,
   std::fill(voicing->begin(), voicing->end(), voicing_value);
 }
 
-static constexpr double a = 1.05946309436;  // std::pow(2, 1.0 / 12);
-
 void Resampler::ApplyPitch() {
+  double a = std::pow(2.0, 1.0 / request_.equal_temperament);
   double step_ms = 60000.0 / request_.tempo / 480.0 * 5;
   double time_ms = 0;
   double left_pitch =
@@ -185,7 +184,7 @@ void Resampler::ApplyPitch() {
       pitch = right_pitch;
     }
     double tone = request_.tone + pitch * 0.01;
-    double freq = 440.0 * std::pow(a, tone - 69);
+    double freq = request_.concert_pitch * std::pow(a, tone - request_.concert_pitch_note);
     model_->f0()[i] = freq;
     time_ms += model_->frame_ms();
   }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -50,6 +50,7 @@ namespace OpenUtau.Plugin.Builtin {
 
         //result caching
         private Dictionary<int, List<Tuple<string, int>>> partResult = new Dictionary<int, List<Tuple<string, int>>>();
+        private UProject project;
 
         int paddingMs = 500;//段首辅音预留时长
 
@@ -196,7 +197,7 @@ namespace OpenUtau.Plugin.Builtin {
                     var lineSplit = line.Split("=");
                     var key = lineSplit[0];
                     var value = lineSplit[1];
-                    var phonemes = value.Trim(new char[] { '\"' }).Split(",");
+                    var phonemes = value.Trim(new char[] { '"' }).Split(",");
                     phoneDict[key] = phonemes;
                 }
             }
@@ -210,6 +211,7 @@ namespace OpenUtau.Plugin.Builtin {
         }
 
         public override void SetUp(Note[][] groups, UProject project, UTrack track) {
+            this.project = project;
             if (groups.Length == 0) {
                 return;
             }
@@ -542,7 +544,7 @@ namespace OpenUtau.Plugin.Builtin {
                     if (line[idx] > 0) {
                         lastMidi = line[idx];
                     }
-                    line[idx] = (float)Math.Log(MusicMath.ToneToFreq(lastMidi));
+                    line[idx] = (float)Math.Log(MusicMath.ToneToFreq(lastMidi, this.project.EqualTemperament));
                 }
             }
 

@@ -97,6 +97,11 @@
     <None Include="..\runtimes\linux-arm64\native\**" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
   </ItemGroup>
   <ItemGroup>
+    <AvaloniaXaml Update="Views\ProjectSettingsDialog.axaml">
+      <CopyToOutputDirectory></CopyToOutputDirectory>
+    </AvaloniaXaml>
+  </ItemGroup>
+  <ItemGroup>
     <Compile Update="Controls\NotePropertyExpression.axaml.cs">
       <DependentUpon>NotePropertyExpression.axaml</DependentUpon>
     </Compile>
@@ -110,6 +115,9 @@
     </Compile>
     <Compile Update="Views\PasteParamDialog.axaml.cs">
       <DependentUpon>PasteParamDialog.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\ProjectSettingsDialog.axaml.cs">
+      <DependentUpon>ProjectSettingsDialog.axaml</DependentUpon>
     </Compile>
     <Compile Update="Views\TrackSettingsDialog.axaml.cs">
       <DependentUpon>TrackSettingsDialog.axaml</DependentUpon>

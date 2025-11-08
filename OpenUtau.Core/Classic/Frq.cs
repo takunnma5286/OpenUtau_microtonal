@@ -30,9 +30,9 @@ namespace OpenUtau.Classic {
                     ConvertMsToFrqLength(frq, oto.Offset - oto.Cutoff)
                     : frq.f0.Length - ConvertMsToFrqLength(frq, oto.Cutoff);
                 var completionF0 = Completion(frq.f0);
-                var averageTone = MusicMath.FreqToTone(frq.averageF0);
-                toneDiffFix = completionF0.Skip(offset).Take(consonant - offset).Select(f => MusicMath.FreqToTone(f) - averageTone).ToArray();
-                toneDiffStretch = completionF0.Skip(consonant).Take(cutoff - consonant).Select(f => MusicMath.FreqToTone(f) - averageTone).ToArray();
+                var averageTone = MusicMath.FreqToTone(frq.averageF0, 12);
+                toneDiffFix = completionF0.Skip(offset).Take(consonant - offset).Select(f => MusicMath.FreqToTone(f, 12) - averageTone).ToArray();
+                toneDiffStretch = completionF0.Skip(consonant).Take(cutoff - consonant).Select(f => MusicMath.FreqToTone(f, 12) - averageTone).ToArray();
 
                 loaded = true;
             }

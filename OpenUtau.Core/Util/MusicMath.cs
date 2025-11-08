@@ -3,8 +3,6 @@ using System.Collections.Generic;
 
 namespace OpenUtau.Core {
     public static class MusicMath {
-        private static readonly double a = Math.Pow(2, 1.0 / 12);
-
         public enum KeyColor { White, Black }
 
         public static readonly Tuple<string, KeyColor>[] KeysInOctave = {
@@ -62,31 +60,40 @@ namespace OpenUtau.Core {
             "7",
         };
 
-        public static string GetToneName(int noteNum) {
-            return noteNum < 0 ? string.Empty : KeysInOctave[noteNum % 12].Item1 + (noteNum / 12 - 1).ToString();
+        public static string GetToneName(int noteNum, int equalTemperament) {
+            if (equalTemperament == 12) {
+                return noteNum < 0 ? string.Empty : KeysInOctave[noteNum % 12].Item1 + (noteNum / 12 - 1).ToString();
+            }
+            return noteNum.ToString();
         }
 
-        public static int NameToTone(string name) {
-            if (name.Length < 2) {
-                return -1;
+        public static int NameToTone(string name, int equalTemperament) {
+            if (equalTemperament == 12) {
+                if (name.Length < 2) {
+                    return -1;
+                }
+                var str = name.Substring(0, (name[1] == '#' || name[1] == 'b') ? 2 : 1);
+                var num = name.Substring(str.Length);
+                if (!int.TryParse(num, out int octave)) {
+                    return -1;
+                }
+                if (!NameInOctave.TryGetValue(str, out int inOctave)) {
+                    return -1;
+                }
+                return 12 * (octave + 1) + inOctave;
             }
-            var str = name.Substring(0, (name[1] == '#' || name[1] == 'b') ? 2 : 1);
-            var num = name.Substring(str.Length);
-            if (!int.TryParse(num, out int octave)) {
-                return -1;
-            }
-            if (!NameInOctave.TryGetValue(str, out int inOctave)) {
-                return -1;
-            }
-            return 12 * (octave + 1) + inOctave;
+            return int.TryParse(name, out int tone) ? tone : -1;
         }
 
-        public static bool IsBlackKey(int noteNum) {
-            return KeysInOctave[noteNum % 12].Item2 == KeyColor.Black;
+        public static bool IsBlackKey(int noteNum, int equalTemperament) {
+            if (equalTemperament == 12) {
+                return KeysInOctave[noteNum % 12].Item2 == KeyColor.Black;
+            }
+            return false;
         }
 
-        public static bool IsCenterKey(int noteNum) {
-            return noteNum % 12 == 0;
+        public static bool IsCenterKey(int noteNum, int equalTemperament) {
+            return noteNum % equalTemperament == 0;
         }
 
         public static double[] zoomRatios = { 4.0, 2.0, 1.0, 1.0 / 2, 1.0 / 4, 1.0 / 8, 1.0 / 16, 1.0 / 32, 1.0 / 64 };
@@ -190,16 +197,19 @@ namespace OpenUtau.Core {
             return Math.Log10(v) * 20;
         }
 
-        public static double ToneToFreq(int tone) {
-            return 440.0 * Math.Pow(a, tone - 69);
+        public static double ToneToFreq(int tone, int equalTemperament = 12, double concertPitch = 440.0, int concertPitchNote = 69) {
+            double a = Math.Pow(2, 1.0 / equalTemperament);
+            return concertPitch * Math.Pow(a, tone - concertPitchNote);
         }
 
-        public static double ToneToFreq(double tone) {
-            return 440.0 * Math.Pow(a, tone - 69);
+        public static double ToneToFreq(double tone, int equalTemperament = 12, double concertPitch = 440.0, int concertPitchNote = 69) {
+            double a = Math.Pow(2, 1.0 / equalTemperament);
+            return concertPitch * Math.Pow(a, tone - concertPitchNote);
         }
 
-        public static double FreqToTone(double freq) {
-            return Math.Log(freq / 440.0, a) + 69;
+        public static double FreqToTone(double freq, int equalTemperament = 12, double concertPitch = 440.0, int concertPitchNote = 69) {
+            double a = Math.Pow(2, 1.0 / equalTemperament);
+            return Math.Log(freq / concertPitch, a) + concertPitchNote;
         }
 
         public static List<int> GetSnapDivs(int resolution) {

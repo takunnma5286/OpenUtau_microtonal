@@ -11,22 +11,25 @@ namespace worldline {
 
 static constexpr int name_to_tone[] = {9, 11, 0, 2, 4, 5, 7};  // A to G
 
-static bool ParseTone(std::string_view name, int* tone) {
-  if (name.size() < 2 || name.size() > 3) {
-    return false;
+static bool ParseTone(std::string_view name, int equal_temperament, int* tone) {
+  if (equal_temperament == 12) {
+    if (name.size() < 2 || name.size() > 3) {
+      return false;
+    }
+    bool sharp = name.size() == 3;
+    int octave;
+    if (!absl::SimpleAtoi(name.substr(name.size() - 1, 1), &octave)) {
+      return false;
+    }
+    int tone_index = name[0] - 'A';
+    if (tone_index >= 7) {
+      return false;
+    }
+    *tone = name_to_tone[tone_index];
+    *tone = 12 * (octave + 1) + *tone + (sharp ? 1 : 0);
+    return true;
   }
-  bool sharp = name.size() == 3;
-  int octave;
-  if (!absl::SimpleAtoi(name.substr(name.size() - 1, 1), &octave)) {
-    return false;
-  }
-  int tone_index = name[0] - 'A';
-  if (tone_index >= 7) {
-    return false;
-  }
-  *tone = name_to_tone[tone_index];
-  *tone = 12 * (octave + 1) + *tone + (sharp ? 1 : 0);
-  return true;
+  return absl::SimpleAtoi(name, tone);
 }
 
 void ParseClassicFlag(std::string_view flags, std::string_view flag, int* value,
@@ -134,7 +137,16 @@ static std::vector<int> ParsePitchBend(const std::string& encoded) {
 
 SynthRequest ParseClassicArgs(const std::vector<std::string>& args) {
   SynthRequest request;
-  if (args.size() <= 2 || !ParseTone(args[2], &request.tone)) {
+  if (args.size() <= 13 || !absl::SimpleAtoi(args[13], &request.equal_temperament)) {
+    request.equal_temperament = 12;
+  }
+  if (args.size() <= 14 || !absl::SimpleAtod(args[14], &request.concert_pitch)) {
+    request.concert_pitch = 440.0;
+  }
+  if (args.size() <= 15 || !absl::SimpleAtoi(args[15], &request.concert_pitch_note)) {
+    request.concert_pitch_note = 69;
+  }
+  if (args.size() <= 2 || !ParseTone(args[2], request.equal_temperament, &request.tone)) {
     request.tone = 40;
   }
   if (args.size() <= 3 || !absl::SimpleAtod(args[3], &request.con_vel)) {

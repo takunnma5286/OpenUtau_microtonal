@@ -134,7 +134,7 @@ namespace OpenUtau.Core.Format
                                         // pass
                                     } else {
                                         var pitch = note.Pitch.Step.ToString() + note.Pitch.Octave.ToString();
-                                        int tone = MusicMath.NameToTone(pitch) + (int)note.Pitch.Alter;
+                                        int tone = MusicMath.NameToTone(pitch, 12) + (int)note.Pitch.Alter;
                                         var tieStatus = NoteTieStatus(note);
                                         var slurStatus = NoteSlurStatus(note);
                                         var syllabicStatus = note.Lyric.Count > 0 ? SyllabicStatus(note.Lyric[0]) : Syllabic.Single;

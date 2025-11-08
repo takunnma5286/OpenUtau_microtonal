@@ -100,7 +100,7 @@ namespace OpenUtau.Classic {
             var threadId = Thread.CurrentThread.ManagedThreadId;
             string tmpFile = args.outputFile;
             string ArgParam = FormattableString.Invariant(
-                $"\"{args.inputTemp}\" \"{tmpFile}\" {MusicMath.GetToneName(args.tone)} {args.velocity} \"{args.GetFlagsString()}\" {args.offset} {args.durRequired} {args.consonant} {args.cutoff} {args.volume} {args.modulation} !{args.tempo} {Base64.Base64EncodeInt12(args.pitches)}");
+                $"\"{args.inputTemp}\" \"{tmpFile}\" {MusicMath.GetToneName(args.tone, args.equalTemperament)} {args.velocity} \"{args.GetFlagsString()}\" {args.offset} {args.durRequired} {args.consonant} {args.cutoff} {args.volume} {args.modulation} !{args.tempo} {Base64.Base64EncodeInt12(args.pitches)} {args.equalTemperament} {args.concertPitch} {args.concertPitchNote}");
             logger.Information($" > [thread-{threadId}] {FilePath} {ArgParam}");
             if (useWine) {
                 ProcessRunner.Run(winePath, $"{FilePath} {ArgParam}", logger);

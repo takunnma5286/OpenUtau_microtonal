@@ -1,86 +1,43 @@
+[日本語版はこちら](./README_ja.md)
 
-# OpenUtau
+# OpenUtau_microtonal
 
-OpenUtau is a free, open-source editor made for the UTAU community.
+** This project is under active development! So expect instabilities. **
 
-[![Build](https://img.shields.io/github/actions/workflow/status/stakira/OpenUtau/build.yml?style=for-the-badge)](https://github.com/stakira/OpenUtau/actions/workflows/build.yml)
-[![Discord](https://img.shields.io/discord/551606189386104834?style=for-the-badge&label=discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/UfpMnqMmEM)
-[![QQ Qroup](https://img.shields.io/badge/QQ-485658015-blue?style=for-the-badge)](https://qm.qq.com/cgi-bin/qm/qr?k=8EtEpehB1a-nfTNAnngTVqX3o9xoIxmT&jump_from=webapi)
-[![Trello](https://img.shields.io/badge/trello-go-blue?style=for-the-badge&logo=trello)](https://trello.com/b/93ANoCIV/openutau)
+This is a fork of OpenUTAU with the goal of adding support for microtonality. At the moment it has basic support for equal temperaments, only for WORLDLINE-R. It also works with VOICEVOX singers.
 
-## Getting started
+For more information about OpenUTAU, visit [the repository for OpenUTAU](https://github.com/stakira/OpenUtau).
+For support, you can contact @takunnma on Discord. You can find him on [this server](https://discord.gg/k3Cp7kW6Jv).
 
-[![Download](https://img.shields.io/static/v1?style=for-the-badge&logo=github&label=download&message=windows-x64&labelColor=FF347C&color=4ea6ea)](https://github.com/stakira/OpenUtau/releases/latest/download/OpenUtau-win-x64.zip)</br>
-[![Download](https://img.shields.io/static/v1?style=for-the-badge&logo=github&label=download&message=windows-x86&labelColor=FF347C&color=4ea6ea)](https://github.com/stakira/OpenUtau/releases/latest/download/OpenUtau-win-x86.zip)</br>
-[![Download](https://img.shields.io/static/v1?style=for-the-badge&logo=github&label=download&message=macos-x64&labelColor=FF347C&color=4ea6ea)](https://github.com/stakira/OpenUtau/releases/latest/download/OpenUtau-osx-x64.dmg)</br>
-[![Download](https://img.shields.io/static/v1?style=for-the-badge&logo=github&label=download&message=linux-x64&labelColor=FF347C&color=4ea6ea)](https://github.com/stakira/OpenUtau/releases/latest/download/OpenUtau-linux-x64.tar.gz)
+## Installation
 
-It is **strongly recommended** that you read these Github wiki pages before using the software.
-- [Getting-Started](https://github.com/stakira/OpenUtau/wiki/Getting-Started)
-- [Resamplers](https://github.com/stakira/OpenUtau/wiki/Resamplers-and-Wavtools)
-- [Phonemizers](https://github.com/stakira/OpenUtau/wiki/Phonemizers)
-- [FAQ](https://github.com/stakira/OpenUtau/wiki/FAQ)
+To get started, download the [latest beta release](https://github.com/takunnma5286/OpenUtau_microtonal/releases/tag/beta). You can—and should—install it alongside your existing installation of OpenUTAU. It will access the same folders and files as the existing one, so there is no need to move or copy voicebanks, phonemizers, or anything else.
 
-- [中文使用说明](https://opensynth.miraheze.org/wiki/OpenUTAU/%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95)
+If you aren't sure which one to download, here's a quick guide:
 
-## How to contribute
+<img width="602" height="502" alt="image" src="https://github.com/user-attachments/assets/d72ac399-bb74-489f-ba4f-e493220ca9b8" />
 
-Tried OpenUtau and not satisfied? Don't just walk away! You can help:
-- Report issues on our [Discord server](https://discord.gg/UfpMnqMmEM) or Github.
-- Suggest features on Discord or Github.
-- Add or update translations for your language on [Crowdin](https://crowdin.com/project/oxygen-dioxideopenutau).
+Windows: Open the downloads folder, and unzip the file you just downloaded. Run `OpenUtau.exe` in the unzipped folder.
 
-Know how to code? Got an idea for an improvement? Don't keep it to yourself!
-- Contribute fixes via pull requests.
-- Check out the development roadmap on [Trello](https://trello.com/b/93ANoCIV/openutau) and discuss it on Discord.
+OSX: Open the downloads folder, and open the file you just downloaded. This will install it. Then you can run it.
 
-## Plugin development
+Linux: Open a terminal, and type `chmod +x Downloads/[file].AppImage`. Then you can close the terminal, and open it by clicking it in the Downloads folder.
 
-Want to contribute plugins to help other users? Check out our API documentation:
-- [Editing Macros API Document](OpenUtau.Core/Editing/README.md)
-- [Phonemizers API Document](OpenUtau.Core/Api/README.md)
+## Usage
 
-## Main features
+Make sure you are using WORLDLINE-R.
 
-Navigate the interface naturally and fluently using the mouse and scroll wheel. Keyboard shortcuts are also available.
+<img width="301" height="106" alt="image" src="https://github.com/user-attachments/assets/0354b417-215a-4de7-95e5-12af4f26099a" />
 
-![Editor](Misc/GIFs/editor.gif)
+Open this menu:
 
-Easily create songs and covers using the feature-rich MIDI editor.
+<img width="295" height="97" alt="image" src="https://github.com/user-attachments/assets/cff18af9-f9e8-48b8-8c85-da44f12aa35b" />
 
-![Editor](Misc/GIFs/editor2.gif)
+and click on Project Settings. You should see a menu like this:
 
-Create expressive vibratos with the easy-to-use vibrato editor.
+<img width="348" height="229" alt="image" src="https://github.com/user-attachments/assets/ac19d722-5ef5-430f-8c75-3ef5e1e76083" />
 
-![Vibrato](Misc/GIFs/vibrato.gif)
+Set the desired number of divisions in the 'Equal Temperament (Divisions per octave)' field. (You typically do not need to change the two options below.)
 
-Pre-rendering and built-in resamplers let you quickly preview your work.
+<img width="493" height="423" alt="image" src="https://github.com/user-attachments/assets/25fcf692-802f-4723-8366-27745850146a" />
 
-![Playback](Misc/GIFs/playback.gif)
-
-See the [Getting-Started Wiki page](https://github.com/stakira/OpenUtau/wiki/Getting-Started) for more!
-
-## All features
-- Modern user experience.
-- Easy navigation using the mouse and keyboard.
-- Feature-rich MIDI editor.
-  - Support for importing VSQX (Vocaloid 4) tracks.
-- Selective backward compatibility with UTAU.
-  - OpenUtau aims to solve problems with fewer steps. It is not designed to replicate UTAU features exactly.
-- Extensible real-time phonetic editing.
-  - Includes phonemizers for different phonetic systems (VCV, CVVC, Arpasing, etc.) in many different languages (English, Japanese, Chinese, Korean, Russian and more).
-- Expressions replace the standard UTAU "flags" for tuning.
-  - The built-in WORLDLINE-R resampler supports curve tuning, similar to many vocal synth editors.
-- Internationalisation, including UI translation and file system encoding support.
-  - Unlike UTAU, there is no need to change your system locale to use OpenUtau.
-- Smooth preview/rendering experience.
-  - Pre-rendering allows OpenUtau to render vocals before playback, saving time during editing and tuning.
-- Supports ENUNU AI singers. See the [ENUNU wiki page](https://github.com/stakira/OpenUtau/wiki/ENUNU-NNSVS-Support) for more info.
-- Easy-to-use plugin system.
-- Versatile resampling engine interface.
-  - Compatible with most UTAU resamplers.
-- Runs on Windows (32/64 bit), macOS, and Linux.
-
-### What it doesn't do
-- While OpenUtau can do very minimal mixing, it will not replace your digital audio workstation of choice.
-- OpenUtau does not aim for Vocaloid compatibility, except for some limited features.

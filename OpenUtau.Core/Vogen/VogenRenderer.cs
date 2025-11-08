@@ -119,7 +119,7 @@ namespace OpenUtau.Core.Vogen {
                 .Append(tailFrames)
                 .ToList();
             var totalFrames = (int)phDurs.Sum();
-            var f0 = SampleCurve(phrase, phrase.pitches, 0, totalFrames, headFrames, tailFrames, x => MusicMath.ToneToFreq(x * 0.01));
+            var f0 = SampleCurve(phrase, phrase.pitches, 0, totalFrames, headFrames, tailFrames, x => MusicMath.ToneToFreq(x * 0.01, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote));
             float[] f0Shifted = f0.Select(f => (float)f).ToArray();
             if (phrase.toneShift != null) {
                 for (int i = 0; i < f0.Length - headFrames - tailFrames; i++) {
@@ -127,7 +127,7 @@ namespace OpenUtau.Core.Vogen {
                     int ticks = phrase.timeAxis.MsPosToTickPos(posMs) - (phrase.position - phrase.leading);
                     int index = Math.Max(0, (int)((double)ticks / pitchInterval));
                     if (index < phrase.pitches.Length) {
-                        f0Shifted[i + headFrames] = (float)MusicMath.ToneToFreq((phrase.pitches[index] + phrase.toneShift[index]) * 0.01);
+                        f0Shifted[i + headFrames] = (float)MusicMath.ToneToFreq((phrase.pitches[index] + phrase.toneShift[index]) * 0.01, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote);
                     }
                 }
             }
@@ -215,7 +215,7 @@ namespace OpenUtau.Core.Vogen {
                 return null;
             }
             var result = new RenderPitchResult() {
-                tones = np.Load<float[]>(f0Path).Select(f => (float)MusicMath.FreqToTone(f)).ToArray(),
+                tones = np.Load<float[]>(f0Path).Select(f => (float)MusicMath.FreqToTone(f, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote)).ToArray(),
             };
             result.ticks = new float[result.tones.Length];
             var layout = Layout(phrase);

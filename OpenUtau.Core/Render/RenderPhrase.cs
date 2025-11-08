@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -164,6 +164,9 @@ namespace OpenUtau.Core.Render {
 
     public class RenderPhrase {
         public readonly USinger singer;
+        public readonly int equalTemperament;
+        public readonly double concertPitch;
+        public readonly int concertPitchNote;
         public readonly TimeAxis timeAxis;
 
         public readonly int position;
@@ -213,6 +216,9 @@ namespace OpenUtau.Core.Render {
             }
 
             singer = track.Singer;
+            equalTemperament = project.EqualTemperament;
+            concertPitch = project.ConcertPitch;
+            concertPitchNote = project.ConcertPitchNote;
             renderer = track.RendererSettings.Renderer;
             wavtool = track.RendererSettings.wavtool;
             timeAxis = project.timeAxis.Clone();
@@ -467,6 +473,9 @@ namespace OpenUtau.Core.Render {
                     writer.Write(renderer?.ToString() ?? "");
                     writer.Write(wavtool ?? "");
                     writer.Write(timeAxis.Timestamp);
+                    writer.Write(equalTemperament);
+                    writer.Write(concertPitch);
+                    writer.Write(concertPitchNote);
                     foreach (var phone in phones) {
                         writer.Write(phone.hash);
                     }

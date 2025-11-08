@@ -128,7 +128,7 @@ namespace OpenUtau.Classic {
             writer.WriteLine($"@set vel={item.velocity}");
             string relOutputFile = Path.GetRelativePath(PathManager.Inst.CachePath, item.outputFile);
             writer.WriteLine($"@set temp=\"%cachedir%\\{ConvertIfNeeded(relOutputFile)}\"");
-            string toneName = MusicMath.GetToneName(item.tone);
+            string toneName = MusicMath.GetToneName(item.tone, item.equalTemperament);
             string dur = $"{item.phone.duration:G999}@{item.phone.adjustedTempo:G999}{(item.durCorrection >= 0 ? "+" : "")}{item.durCorrection}";
             string relInputTemp = Path.GetRelativePath(PathManager.Inst.CachePath, item.inputTemp);
             writer.WriteLine($"@echo {MakeProgressBar(index + 1, total)}");

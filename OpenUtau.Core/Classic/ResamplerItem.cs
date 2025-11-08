@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,6 +18,9 @@ namespace OpenUtau.Classic {
         public string inputTemp;
         public string outputFile;
         public int tone;
+        public int equalTemperament;
+        public double concertPitch;
+        public int concertPitchNote;
 
         public Tuple<string, int?, string>[] flags;//flag, value, abbr
         public int velocity;
@@ -46,6 +49,9 @@ namespace OpenUtau.Classic {
             inputFile = phone.oto.File;
             inputTemp = VoicebankFiles.Inst.GetSourceTempPath(phrase.singer.Id, phone.oto, ".wav");
             tone = phone.tone;
+            equalTemperament = phrase.equalTemperament;
+            concertPitch = phrase.concertPitch;
+            concertPitchNote = phrase.concertPitchNote;
 
             flags = phone.flags.Where(flag => resampler.SupportsFlag(flag.Item3)).ToArray();
             velocity = (int)(phone.velocity * 100);
@@ -121,6 +127,9 @@ namespace OpenUtau.Classic {
                     writer.Write(resampler.ToString());
                     writer.Write(inputFile);
                     writer.Write(tone);
+                    writer.Write(equalTemperament);
+                    writer.Write(concertPitch);
+                    writer.Write(concertPitchNote);
 
                     foreach (var flag in flags) {
                         writer.Write(flag.Item1);

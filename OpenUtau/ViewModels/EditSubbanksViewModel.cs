@@ -24,14 +24,14 @@ namespace OpenUtau.App.ViewModels {
                 foreach (var range in subbank.ToneRanges) {
                     var parts = range.Split('-');
                     if (parts.Length == 1) {
-                        int tone = MusicMath.NameToTone(parts[0]);
+                        int tone = MusicMath.NameToTone(parts[0], 12);
                         if (tone >= 24 && tone <= 107) {
                             Rows[107 - tone].Prefix = subbank.Prefix;
                             Rows[107 - tone].Suffix = subbank.Suffix;
                         }
                     } else if (parts.Length == 2) {
-                        int start = MusicMath.NameToTone(parts[0]);
-                        int end = MusicMath.NameToTone(parts[1]);
+                        int start = MusicMath.NameToTone(parts[0], 12);
+                        int end = MusicMath.NameToTone(parts[1], 12);
                         for (int tone = start; tone <= end; ++tone) {
                             if (tone >= 24 && tone <= 107) {
                                 Rows[107 - tone].Prefix = subbank.Prefix;
@@ -54,7 +54,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public string Suffix { get; set; }
         public VoiceColorRow(int index, string prefix, string suffix) {
             this.index = index;
-            Tone = MusicMath.GetToneName(index);
+            Tone = MusicMath.GetToneName(index, 12);
             Prefix = prefix;
             Suffix = suffix;
         }
@@ -231,16 +231,16 @@ namespace OpenUtau.App.ViewModels {
                 } else {
                     if (!toneSet.Contains(i)) {
                         if (i - 1 == start) {
-                            ranges.Add($"{MusicMath.GetToneName(start)}");
+                            ranges.Add($"{MusicMath.GetToneName(start, 12)}");
                         } else {
-                            ranges.Add($"{MusicMath.GetToneName(start)}-{MusicMath.GetToneName(i - 1)}");
+                            ranges.Add($"{MusicMath.GetToneName(start, 12)}-{MusicMath.GetToneName(i - 1, 12)}");
                         }
                         start = -1;
                     }
                 }
             }
             if (start > 0) {
-                ranges.Add($"{MusicMath.GetToneName(start)}-{MusicMath.GetToneName(107)}");
+                ranges.Add($"{MusicMath.GetToneName(start, 12)}-{MusicMath.GetToneName(107, 12)}");
             }
             return ranges.ToArray();
         }

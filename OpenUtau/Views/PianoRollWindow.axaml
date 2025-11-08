@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -62,7 +62,10 @@
                          DataContext="{Binding NotesViewModel}"
                          TrackHeight="{Binding TrackHeight}"
                          TrackOffset="{Binding TrackOffset}"
-                         Key="{Binding Key}"
+                         EqualTemperament="{Binding EqualTemperament}"
+                         MaxTone="{Binding MaxTone}"
+                         ConcertPitch="{Binding ConcertPitch}"
+                         ConcertPitchNote="{Binding ConcertPitchNote}"
                          PointerWheelChanged="KeyboardPointerWheelChanged"
                          PointerPressed="KeyboardPointerPressed"
                          PointerMoved="KeyboardPointerMoved"
@@ -126,7 +129,9 @@
                          DataContext="{Binding NotesViewModel}"
                          Bounds="{Binding Bounds, Mode=OneWayToSource}"
                          TrackHeight="{Binding TrackHeight}"
-                         TrackOffset="{Binding TrackOffset}" IsPianoRoll="True"/>
+                         TrackOffset="{Binding TrackOffset}" IsPianoRoll="True"
+                         EqualTemperament="{Binding EqualTemperament}"
+                         MaxTone="{Binding MaxTone}"/>
       <c:TickBackground Grid.Row="2" Grid.RowSpan="2" Grid.Column="1" IsHitTestVisible="False"
                         Foreground="{DynamicResource TickLineBrush}"
                         Background="{DynamicResource TickLineBrushLow}"

@@ -170,13 +170,13 @@ namespace OpenUtau.Core.Ustx {
         private static void AddToneRange(string range, SortedSet<int> set) {
             var parts = range.Split('-');
             if (parts.Length == 1) {
-                int tone = MusicMath.NameToTone(parts[0]);
+                int tone = MusicMath.NameToTone(parts[0], 12);
                 if (tone > 0) {
                     set.Add(tone);
                 }
             } else if (parts.Length == 2) {
-                int start = MusicMath.NameToTone(parts[0]);
-                int end = MusicMath.NameToTone(parts[1]);
+                int start = MusicMath.NameToTone(parts[0], 12);
+                int end = MusicMath.NameToTone(parts[1], 12);
                 if (start > 0 && end > 0) {
                     for (int i = start; i <= end; ++i) {
                         set.Add(i);

@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:OpenUtau.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
+        x:Class="OpenUtau.App.Views.MicrotonalMidiImportDialog"
+        Title="{DynamicResource dialog.importmicrotonalmidi.title}"
+        WindowStartupLocation="CenterScreen"
+        SizeToContent="Height"
+        Width="400">
+
+  <Window.Styles>
+    <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox">
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+  </Window.Styles>
+
+  <Design.DataContext>
+    <vm:MicrotonalMidiImportViewModel/>
+  </Design.DataContext>
+  <StackPanel Margin="10" Spacing="10">
+    <TextBlock Text="{DynamicResource dialog.importmicrotonalmidi.message}"/>
+    <DataGrid ItemsSource="{Binding Channels}" AutoGenerateColumns="False" MaxHeight="500" RowHeight="32">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="{DynamicResource dialog.importmicrotonalmidi.channel}" Binding="{Binding ChannelNumber}" IsReadOnly="True" Width="*"/>
+        <DataGridTemplateColumn Header="{DynamicResource dialog.importmicrotonalmidi.offset}" Width="*">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <NumericUpDown Value="{Binding Offset}" Minimum="-127" Maximum="127" Increment="1" BorderThickness="1" BorderBrush="{DynamicResource SystemControlMidHighBaseMediumLowBrush}"/>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+      <Button Content="{DynamicResource dialogs.messagebox.cancel}" Click="CancelClicked"/>
+      <Button Content="{DynamicResource dialogs.messagebox.ok}" Click="OkClicked" IsDefault="True"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

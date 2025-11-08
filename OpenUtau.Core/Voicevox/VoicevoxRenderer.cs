@@ -81,7 +81,7 @@ namespace OpenUtau.Core.Voicevox {
                                 double frameMs = (1000d / VoicevoxUtils.fps);
                                 vsParams.phonemes.ForEach(x => vvTotalFrames += x.frame_length);
                                 if (!phrase.phones[0].direct) {
-                                    vsParams.f0 = VoicevoxUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, vvTotalFrames, vsParams.phonemes[0].frame_length, vsParams.phonemes[^1].frame_length, 0, x => MusicMath.ToneToFreq(x * 0.01)).ToList();
+                                    vsParams.f0 = VoicevoxUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, vvTotalFrames, vsParams.phonemes[0].frame_length, vsParams.phonemes[^1].frame_length, 0, x => MusicMath.ToneToFreq(x * 0.01, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote)).ToList();
                                 } else {
                                     //vsParams.f0 = ToneShift(phrase, vsParams);
                                     vsParams.f0 = vsParams.f0.Select(f0 => f0 = f0 * Math.Pow(2, ((phrase.phones[0].toneShift * -1) / 12d))).ToList();
@@ -425,7 +425,7 @@ namespace OpenUtau.Core.Voicevox {
                     }
 
                     var result = new RenderPitchResult {
-                        tones = f0.Select(value => (float)MusicMath.FreqToTone(value)).ToArray(),
+                        tones = f0.Select(value => (float)MusicMath.FreqToTone(value, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote)).ToArray(),
                         ticks = new float[vvTotalFrames]
                     };
                     var layout = Layout(phrase);

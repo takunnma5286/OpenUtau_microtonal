@@ -22,7 +22,6 @@ namespace OpenUtau.App {
         public const double NoteHeightMin = 8;
         public const double NoteHeightDefault = 22;
 
-        public const int MaxTone = 12 * 11;
 
         public static readonly Cursor cursorCross = new Cursor(StandardCursorType.Cross);
         public static readonly Cursor cursorHand = new Cursor(StandardCursorType.Hand);

@@ -121,7 +121,7 @@ namespace OpenUtau.App.ViewModels {
                 var note = selectedNotes.First();
 
                 Lyric = note.lyric;
-                Tone = MusicMath.GetToneName(note.tone);
+                Tone = MusicMath.GetToneName(note.tone, DocManager.Inst.Project.EqualTemperament);
                 Tuning = note.tuning;
                 SetTuningFontWeight();
                 if (note.pitch.data.Count == 2) {
@@ -241,7 +241,7 @@ namespace OpenUtau.App.ViewModels {
                     Lyric = note.lyric;
                     this.RaisePropertyChanged(nameof(Lyric));
                 } else if (cmd is MoveNoteCommand) {
-                    Tone = MusicMath.GetToneName(note.tone);
+                    Tone = MusicMath.GetToneName(note.tone, DocManager.Inst.Project.EqualTemperament);
                     this.RaisePropertyChanged(nameof(Tone));
                 } else if (cmd is ChangeNoteTuningCommand) {
                     Tuning = note.tuning;
@@ -333,7 +333,7 @@ namespace OpenUtau.App.ViewModels {
                 } else if (tag == "Tone") {
                     try {
                         if (obj is string s && !string.IsNullOrEmpty(s)) {
-                            int tone = MusicMath.NameToTone(s);
+                            int tone = MusicMath.NameToTone(s, DocManager.Inst.Project.EqualTemperament);
 
                             if ((s.StartsWith("+") || s.StartsWith("-")) && int.TryParse(s, out int i) && i != 0) {
                                 foreach (UNote note in selectedNotes) {
@@ -351,7 +351,7 @@ namespace OpenUtau.App.ViewModels {
                         }
                     } catch {
                         var note = selectedNotes.FirstOrDefault();
-                        Tone = note != null ? MusicMath.GetToneName(note.tone) : string.Empty;
+                        Tone = note != null ? MusicMath.GetToneName(note.tone, DocManager.Inst.Project.EqualTemperament) : string.Empty;
                         this.RaisePropertyChanged(nameof(Tone));
                     }
                 } else if (tag == "Tuning") {

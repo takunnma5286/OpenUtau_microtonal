@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenUtau.Core.Util;
@@ -40,6 +40,9 @@ namespace OpenUtau.Core.Ustx {
         [YamlMember(SerializeAs = typeof(string))]
         public Version ustxVersion;
         public int resolution = 480;
+        public int EqualTemperament = 12;
+        public double ConcertPitch = 440.0;
+        public int ConcertPitchNote = 69;
 
         [Obsolete("Since ustx v0.6")] public double bpm = 120;
         [Obsolete("Since ustx v0.6")] public int beatPerBar = 4;

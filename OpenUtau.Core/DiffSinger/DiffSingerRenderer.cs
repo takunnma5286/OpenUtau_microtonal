@@ -233,7 +233,7 @@ namespace OpenUtau.Core.DiffSinger {
                 .ToList();
             int totalFrames = durations.Sum();
             float[] f0 = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames, 
-                x => MusicMath.ToneToFreq(x * 0.01))
+                x => MusicMath.ToneToFreq(x * 0.01, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote))
                 .Select(f => (float)f).ToArray();
             float[] shiftedF0 = f0.Zip(DiffSingerUtils.SampleCurve(phrase, phrase.toneShift, 0, frameMs, totalFrames,
                 headFrames, tailFrames, x => x),

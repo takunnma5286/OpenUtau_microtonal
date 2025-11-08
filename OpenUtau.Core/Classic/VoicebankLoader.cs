@@ -262,9 +262,9 @@ namespace OpenUtau.Classic {
                                 }
                             } else if (rangeStart != null) {
                                 if (rangeEnd != null) {
-                                    toneRanges.Add($"{MusicMath.GetToneName(rangeStart.Value)}-{MusicMath.GetToneName(rangeEnd.Value)}");
+                                    toneRanges.Add($"{MusicMath.GetToneName(rangeStart.Value, 12)}-{MusicMath.GetToneName(rangeEnd.Value, 12)}");
                                 } else {
-                                    toneRanges.Add($"{MusicMath.GetToneName(rangeStart.Value)}");
+                                    toneRanges.Add($"{MusicMath.GetToneName(rangeStart.Value, 12)}");
                                 }
                                 rangeStart = null;
                                 rangeEnd = null;
@@ -285,7 +285,7 @@ namespace OpenUtau.Classic {
                 while (!reader.EndOfStream) {
                     var s = reader.ReadLine().Split('\t');
                     if (s.Length == 3) {
-                        int tone = MusicMath.NameToTone(s[0]);
+                        int tone = MusicMath.NameToTone(s[0], 12);
                         var key = Tuple.Create(s[1], s[2]);
                         if (!result.TryGetValue(key, out var tones)) {
                             tones = new SortedSet<int>();

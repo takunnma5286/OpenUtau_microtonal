@@ -66,6 +66,12 @@ OpenUtau aims to be an open source editing environment for UTAU community, with 
   <system:String x:Key="dialogs.voicecolorremapping.error">This singer has no voice color</system:String>
   <system:String x:Key="dialogs.voicecolorremapping.caption">Applies to all notes in this track:</system:String>
 
+  <system:String x:Key="menu.file.importmicrotonalmidi">Import Microtonal MIDI...</system:String>
+  <system:String x:Key="dialog.importmicrotonalmidi.title">Import Microtonal MIDI</system:String>
+  <system:String x:Key="dialog.importmicrotonalmidi.message">Set tone offsets for each MIDI channel.</system:String>
+  <system:String x:Key="dialog.importmicrotonalmidi.channel">Channel</system:String>
+  <system:String x:Key="dialog.importmicrotonalmidi.offset">Tone Offset (steps)</system:String>
+
   <system:String x:Key="errors.caption">Error</system:String>
   <system:String x:Key="errors.details">Error Details</system:String>
   <system:String x:Key="errors.diffsinger.downloadvocoder">Error loading vocoder "{0}". Please download vocoder from {1}</system:String>
@@ -680,4 +686,13 @@ General
   <system:String x:Key="welcome.recent">Recent</system:String>
   <system:String x:Key="welcome.start">Start</system:String>
   <system:String x:Key="welcome.template">Template</system:String>
+
+  <system:String x:Key="menu.project.settings">Project Settings...</system:String>
+
+  <system:String x:Key="pjsettings.div">Equal Temperament (Divisions per octave)</system:String>
+  <system:String x:Key="pjsettings.pitch">Concert Pitch (Hz)</system:String>
+  <system:String x:Key="pjsettings.note">Concert Pitch Note Number</system:String>
+  <system:String x:Key="pjsettings.cancel">Cancel</system:String>
+  <system:String x:Key="pjsettings.apply">Apply</system:String>
+  <system:String x:Key="pjsettings.caption">Project Settings</system:String>
 </ResourceDictionary>

@@ -22,6 +22,9 @@ struct SynthRequest {
   double tempo;
   std::int32_t pitch_bend_length = 0;
   std::int32_t* pitch_bend = 0;
+  std::int32_t equal_temperament;
+  double concert_pitch;
+  std::int32_t concert_pitch_note;
 
   int flag_g;
   int flag_O;

@@ -23,21 +23,24 @@ namespace OpenUtau.App.Views {
         }
         public void Begin(IPointer pointer, Point point) {
             pointer.Capture(element);
-            var tone = vm.NotesViewModel.PointToTone(point);
-            PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone));
+            var notesVm = vm.NotesViewModel;
+            var tone = notesVm.PointToTone(point);
+            PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone, notesVm.EqualTemperament, notesVm.Project.ConcertPitch, notesVm.Project.ConcertPitchNote));
             activeTone = tone;
         }
         public void Update(IPointer pointer, Point point) {
-            var tone = vm.NotesViewModel.PointToTone(point);
+            var notesVm = vm.NotesViewModel;
+            var tone = notesVm.PointToTone(point);
             if (activeTone != tone) {
-                PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone));
-                PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone));
+                PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone, notesVm.EqualTemperament, notesVm.Project.ConcertPitch, notesVm.Project.ConcertPitchNote));
+                PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone, notesVm.EqualTemperament, notesVm.Project.ConcertPitch, notesVm.Project.ConcertPitchNote));
                 activeTone = tone;
             }
         }
         public void End(IPointer pointer, Point point) {
+            var notesVm = vm.NotesViewModel;
             pointer.Capture(null);
-            PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone));
+            PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone, notesVm.EqualTemperament, notesVm.Project.ConcertPitch, notesVm.Project.ConcertPitchNote));
         }
     }
 
@@ -171,10 +174,10 @@ namespace OpenUtau.App.Views {
             var selectedNotes = notesVm.Selection.ToList();
             if (selectedNotes.Count > 0) {
                 minDeltaTone = -selectedNotes.Select(p => p.tone).Min();
-                maxDeltaTone = ViewConstants.MaxTone - 1 - selectedNotes.Select(p => p.tone).Max();
+                maxDeltaTone = notesVm.MaxTone - 1 - selectedNotes.Select(p => p.tone).Max();
             } else {
                 minDeltaTone = -note.tone;
-                maxDeltaTone = ViewConstants.MaxTone - 1 - note.tone;
+                maxDeltaTone = notesVm.MaxTone - 1 - note.tone;
             }
             deltaTone = Math.Clamp(deltaTone, minDeltaTone, maxDeltaTone);
 
@@ -229,7 +232,7 @@ namespace OpenUtau.App.Views {
                     PlaybackManager.Inst.StopPlayback();
                 }
                 activeTone = note.tone;
-                PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(note.tone));
+                PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(note.tone, vm.NotesViewModel.EqualTemperament, vm.NotesViewModel.Project.ConcertPitch, vm.NotesViewModel.Project.ConcertPitchNote));
             }
         }
         public override void Update(IPointer pointer, Point point) {
@@ -245,8 +248,8 @@ namespace OpenUtau.App.Views {
             int tone = notesVm.PointToTone(point);
             if (activeTone != tone) {
                 // Tone has changed
-                PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone));
-                PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone));
+                PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone, notesVm.EqualTemperament, notesVm.Project.ConcertPitch, notesVm.Project.ConcertPitchNote));
+                PlaybackManager.Inst.PlayTone(MusicMath.ToneToFreq(tone, notesVm.EqualTemperament, notesVm.Project.ConcertPitch, notesVm.Project.ConcertPitchNote));
                 activeTone = tone;
             }
             int deltaTone = tone - note.tone;
@@ -282,7 +285,7 @@ namespace OpenUtau.App.Views {
         }
         public override void End(IPointer pointer, Point point) {
             base.End(pointer, point);
-            PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone));
+            PlaybackManager.Inst.EndTone(MusicMath.ToneToFreq(activeTone, vm.NotesViewModel.EqualTemperament, vm.NotesViewModel.Project.ConcertPitch, vm.NotesViewModel.Project.ConcertPitchNote));
         }
     }
 

@@ -112,7 +112,7 @@ namespace OpenUtau.Plugins {
                     lyric = lyric,
                     duration = 240,
                     position = position,
-                    tone = Core.MusicMath.NameToTone(tones[i]),
+                    tone = Core.MusicMath.NameToTone(tones[i], 12),
                     phonemeAttributes = new Phonemizer.PhonemeAttributes[] {
                         new Phonemizer.PhonemeAttributes{
                             index = 0,
@@ -156,7 +156,7 @@ namespace OpenUtau.Plugins {
                     lyric = lyric,
                     duration = 240,
                     position = position,
-                    tone = Core.MusicMath.NameToTone(noteParams.tone),
+                    tone = Core.MusicMath.NameToTone(noteParams.tone, 12),
                     phoneticHint = noteParams.hint,
                     phonemeAttributes = attr
                 });
