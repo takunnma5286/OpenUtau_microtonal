@@ -88,6 +88,8 @@ namespace OpenUtau.App {
             Log.Information("Initialized theme.");
         }
 
+        static ResourceDictionary? _themeOverrides;
+
         public static void SetTheme() {
             if (Current == null) {
                 return;
@@ -98,17 +100,25 @@ namespace OpenUtau.App {
             Current.Resources.MergedDictionaries.Remove(light);
             Current.Resources.MergedDictionaries.Remove(dark);
             Current.Resources.MergedDictionaries.Remove(custom);
+            if (_themeOverrides != null) {
+                Current.Resources.MergedDictionaries.Remove(_themeOverrides);
+                _themeOverrides = null;
+            }
+
             if (Core.Util.Preferences.Default.Theme == 0) {
                 Current.Resources.MergedDictionaries.Add(light);
                 Current.RequestedThemeVariant = ThemeVariant.Light;
-            } 
+            }
             if (Core.Util.Preferences.Default.Theme == 1) {
                 Current.Resources.MergedDictionaries.Add(dark);
                 Current.RequestedThemeVariant = ThemeVariant.Dark;
             }
             if (Core.Util.Preferences.Default.Theme == 2) {
                 Current.Resources.MergedDictionaries.Add(custom);
-                CustomTheme.ApplyTheme();
+                _themeOverrides = new ResourceDictionary();
+                CustomTheme.ApplyTheme(_themeOverrides);
+                Current.Resources.MergedDictionaries.Add(_themeOverrides);
+
                 if (CustomTheme.Default.IsDarkMode == true) {
                     Current.RequestedThemeVariant = ThemeVariant.Dark;
                 } else {
