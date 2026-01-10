@@ -18,4 +18,13 @@ namespace OpenUtau.App.ViewModels {
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => (value as Encoding)?.EncodingName ?? string.Empty;
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotImplementedException();
     }
+    public class LinearScaleConverter : IValueConverter {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) {
+            if (value is double v && double.TryParse(parameter?.ToString(), out double scale)) {
+                return v * scale;
+            }
+            return 0.0;
+        }
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotImplementedException();
+    }
 }

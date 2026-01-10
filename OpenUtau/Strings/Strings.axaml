@@ -711,4 +711,6 @@ General
   <system:String x:Key="pjsettings.apply">Apply</system:String>
   <system:String x:Key="pjsettings.caption">Project Settings</system:String>
   <system:String x:Key="pjsettings.importtun">Import Tun</system:String>
+  <system:String x:Key="pjsettings.mode.et">Equal Temperament (Default)</system:String>
+  <system:String x:Key="pjsettings.mode.tunfile">Tun File</system:String>
 </ResourceDictionary>

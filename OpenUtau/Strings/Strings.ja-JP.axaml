@@ -658,4 +658,6 @@
   <system:String x:Key="pjsettings.apply">適用</system:String>
   <system:String x:Key="pjsettings.caption">プロジェクトの設定</system:String>
   <system:String x:Key="pjsettings.importtun">Tunファイルをインポート</system:String>
+  <system:String x:Key="pjsettings.mode.et">平均律</system:String>
+  <system:String x:Key="pjsettings.mode.tunfile">Tunファイル</system:String>
 </ResourceDictionary>

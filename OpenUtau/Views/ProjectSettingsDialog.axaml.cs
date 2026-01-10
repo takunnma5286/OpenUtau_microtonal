@@ -20,6 +20,7 @@ namespace OpenUtau.App.Views {
                     vm.ConcertPitch = config.ConcertPitch;
                     vm.ConcertPitchNote = config.ConcertPitchNote;
                     vm.TuningMap = config.TuningMap;
+                    vm.IsTunfile = true;
                     // Auto-calculate EqualTemperament if possible, or just keep it?
                     // TunFile.Load sets ConcertPitch.
                     // But EqualTemperament might be implied 12 if not specified, 

@@ -6,15 +6,53 @@
         WindowStartupLocation="CenterScreen"
         SizeToContent="WidthAndHeight"
         x:Class="OpenUtau.App.Views.ProjectSettingsDialog">
+  <Window.Resources>
+    <vm:LinearScaleConverter x:Key="ScaleConverter"/>
+  </Window.Resources>
   <StackPanel Margin="10" Spacing="10">
-    <TextBlock Text="{DynamicResource pjsettings.div}"/>
-    <c:IntEditor Value="{Binding EqualTemperament}"/>
-    <TextBlock Text="{DynamicResource pjsettings.pitch}"/>
-    <c:FloatEditor Value="{Binding ConcertPitch}"/>
-    <TextBlock Text="{DynamicResource pjsettings.note}"/>
-    <c:IntEditor Value="{Binding ConcertPitchNote}"/>
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+    <!-- ET Mode -->
+    <RadioButton GroupName="TuningMode" Content="{DynamicResource pjsettings.mode.et}" 
+                 IsChecked="{Binding IsET}"/>
+    <StackPanel Margin="20,0,0,0" IsEnabled="{Binding IsET}" Spacing="10">
+      <TextBlock Text="{DynamicResource pjsettings.div}"/>
+      <c:IntEditor Value="{Binding EqualTemperament}"/>
+      <TextBlock Text="{DynamicResource pjsettings.pitch}"/>
+      <c:FloatEditor Value="{Binding ConcertPitch}"/>
+      <TextBlock Text="{DynamicResource pjsettings.note}"/>
+      <c:IntEditor Value="{Binding ConcertPitchNote}"/>
+    </StackPanel>
+
+    <!-- Tunfile Mode -->
+    <RadioButton GroupName="TuningMode" Content="{DynamicResource pjsettings.mode.tunfile}" 
+                 IsChecked="{Binding IsTunfile}"/>
+    <StackPanel Margin="20,0,0,0" IsEnabled="{Binding IsTunfile}" Spacing="10">
       <Button Content="{DynamicResource pjsettings.importtun}" Click="ImportTunClicked"/>
+      <TextBlock Text="{Binding OctaveLengthDescription}"/>
+      <Border Width="300" HorizontalAlignment="Left" Height="10" 
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+              BorderThickness="0,0,0,1">
+          <ItemsControl ItemsSource="{Binding OctaveDots}">
+              <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                      <Canvas Width="300" Height="10"/>
+                  </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.Styles>
+                  <Style Selector="ContentPresenter">
+                      <Setter Property="Canvas.Left" Value="{Binding Path=., Converter={StaticResource ScaleConverter}, ConverterParameter=300}"/>
+                  </Style>
+              </ItemsControl.Styles>
+              <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                      <Ellipse Width="4" Height="4" Margin="-2,3,0,0" 
+                               Fill="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                  </DataTemplate>
+              </ItemsControl.ItemTemplate>
+          </ItemsControl>
+      </Border>
+    </StackPanel>
+    
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
       <Button Content="{DynamicResource pjsettings.cancel}" Click="CancelClicked"/>
       <Button Content="{DynamicResource pjsettings.apply}" Click="OkClicked"/>
     </StackPanel>

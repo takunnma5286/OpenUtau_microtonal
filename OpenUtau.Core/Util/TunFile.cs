@@ -51,7 +51,7 @@ namespace OpenUtau.Core.Util {
                                 baseFreq = freq;
                                 config.ConcertPitch = baseFreq; // Update config base pitch
                             }
-                        } else if (key.StartsWith("Note ")) {
+                        } else if (key.StartsWith("Note ", StringComparison.OrdinalIgnoreCase)) {
                             string noteIndexStr = key.Substring(5).Trim();
                             if (int.TryParse(noteIndexStr, out int noteIndex) &&
                                 double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out double cents)) {
