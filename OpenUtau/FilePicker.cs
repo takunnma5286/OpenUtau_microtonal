@@ -60,6 +60,9 @@ namespace OpenUtau.App {
             MimeTypes = new[] { "application/x-executable" },
             AppleUniformTypeIdentifiers = new[] { "public.unix-executable" },
         };
+        public static FilePickerFileType TUN { get; } = new("AnaMark Tuning File") {
+            Patterns = new[] { "*.tun" },
+        };
 
         public async static Task<string?> OpenFile(
             Window window, string titleKey, params FilePickerFileType[] types) {
@@ -169,7 +172,7 @@ namespace OpenUtau.App {
 
         public async static Task<string?> SaveFileAboutProject
             (Window window, string titleKey, params FilePickerFileType[] types) {
-            var path = await SaveFile(window, titleKey, Preferences.Default.RecentOpenProjectDirectory, 
+            var path = await SaveFile(window, titleKey, Preferences.Default.RecentOpenProjectDirectory,
                 Path.GetFileName(Path.ChangeExtension(DocManager.Inst.Project.FilePath, null)), types);
             var dir = Path.GetDirectoryName(path);
             if (dir != null) {

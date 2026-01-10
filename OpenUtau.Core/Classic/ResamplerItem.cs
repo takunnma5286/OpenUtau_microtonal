@@ -18,9 +18,7 @@ namespace OpenUtau.Classic {
         public string inputTemp;
         public string outputFile;
         public int tone;
-        public int equalTemperament;
-        public double concertPitch;
-        public int concertPitchNote;
+        public MicrotonalConfig Config;
 
         public Tuple<string, int?, string>[] flags;//flag, value, abbr
         public int velocity;
@@ -41,7 +39,9 @@ namespace OpenUtau.Classic {
 
         public ulong hash;
 
-        public ResamplerItem(RenderPhrase phrase, RenderPhone phone) {
+        // use12ET: if true, uses pitches12ET from phrase (for Classic renderers). 
+        //          if false, uses Semantic pitches (for Worldline etc).
+        public ResamplerItem(RenderPhrase phrase, RenderPhone phone, bool use12ET = false) {
             this.phrase = phrase;
             this.phone = phone;
 
@@ -49,9 +49,7 @@ namespace OpenUtau.Classic {
             inputFile = phone.oto.File;
             inputTemp = VoicebankFiles.Inst.GetSourceTempPath(phrase.singer.Id, phone.oto, ".wav");
             tone = phone.tone;
-            equalTemperament = phrase.equalTemperament;
-            concertPitch = phrase.concertPitch;
-            concertPitchNote = phrase.concertPitchNote;
+            Config = phrase.Config;
 
             flags = phone.flags.Where(flag => resampler.SupportsFlag(flag.Item3)).ToArray();
             velocity = (int)(phone.velocity * 100);
@@ -84,13 +82,15 @@ namespace OpenUtau.Classic {
             var pitchIntervalMs = MusicMath.TempoTickToMs(tempo, 5);
             var pitchSampleStartMs = phone.positionMs - pitchLeadingMs;
 
+            var sourcePitches = use12ET ? phrase.pitches12ET : phrase.pitches;
+
             for (int i = 0; i < pitches.Length; i++) {
                 var samplePosMs = pitchSampleStartMs + pitchIntervalMs * i;
                 var samplePosTick = (int)Math.Floor(phrase.timeAxis.MsPosToNonExactTickPos(samplePosMs));
 
                 var sampleInterval = phrase.timeAxis.TickPosToMsPos(samplePosTick + 5) - phrase.timeAxis.TickPosToMsPos(samplePosTick);
                 var sampleIndex = (samplePosTick - phrasePitchStartTick) / 5.0;
-                sampleIndex = Math.Clamp(sampleIndex, 0, phrase.pitches.Length - 1);
+                sampleIndex = Math.Clamp(sampleIndex, 0, sourcePitches.Length - 1);
 
                 var sampleStart = (int)Math.Floor(sampleIndex);
                 var sampleEnd = (int)Math.Ceiling(sampleIndex);
@@ -98,7 +98,7 @@ namespace OpenUtau.Classic {
                 var diffPitchMs = samplePosMs - phrase.timeAxis.TickPosToMsPos(phrasePitchStartTick + sampleStart * 5);
                 var sampleAlpha = diffPitchMs / sampleInterval;
 
-                var sampleLerped = phrase.pitches[sampleStart] + (phrase.pitches[sampleEnd] - phrase.pitches[sampleStart]) * sampleAlpha;
+                var sampleLerped = sourcePitches[sampleStart] + (sourcePitches[sampleEnd] - sourcePitches[sampleStart]) * sampleAlpha;
 
                 pitches[i] = (int)Math.Round(sampleLerped - phone.tone * 100);
             }
@@ -127,9 +127,9 @@ namespace OpenUtau.Classic {
                     writer.Write(resampler.ToString());
                     writer.Write(inputFile);
                     writer.Write(tone);
-                    writer.Write(equalTemperament);
-                    writer.Write(concertPitch);
-                    writer.Write(concertPitchNote);
+                    writer.Write(Config.EqualTemperament);
+                    writer.Write(Config.ConcertPitch);
+                    writer.Write(Config.ConcertPitchNote);
 
                     foreach (var flag in flags) {
                         writer.Write(flag.Item1);

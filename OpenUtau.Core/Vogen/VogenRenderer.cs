@@ -119,7 +119,7 @@ namespace OpenUtau.Core.Vogen {
                 .Append(tailFrames)
                 .ToList();
             var totalFrames = (int)phDurs.Sum();
-            var f0 = SampleCurve(phrase, phrase.pitches, 0, totalFrames, headFrames, tailFrames, x => MusicMath.ToneToFreq(x * 0.01, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote));
+            var f0 = SampleCurve(phrase, phrase.pitches, 0, totalFrames, headFrames, tailFrames, x => MusicMath.ToneToFreq(x * 0.01, phrase.Config));
             float[] f0Shifted = f0.Select(f => (float)f).ToArray();
             if (phrase.toneShift != null) {
                 for (int i = 0; i < f0.Length - headFrames - tailFrames; i++) {
@@ -127,7 +127,7 @@ namespace OpenUtau.Core.Vogen {
                     int ticks = phrase.timeAxis.MsPosToTickPos(posMs) - (phrase.position - phrase.leading);
                     int index = Math.Max(0, (int)((double)ticks / pitchInterval));
                     if (index < phrase.pitches.Length) {
-                        f0Shifted[i + headFrames] = (float)MusicMath.ToneToFreq((phrase.pitches[index] + phrase.toneShift[index]) * 0.01, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote);
+                        f0Shifted[i + headFrames] = (float)MusicMath.ToneToFreq((phrase.pitches[index] + phrase.toneShift[index]) * 0.01, phrase.Config);
                     }
                 }
             }
@@ -145,7 +145,7 @@ namespace OpenUtau.Core.Vogen {
                 new DenseTensor<string>(phonemes.ToArray(), new int[] { phonemes.Count })));
             inputs.Add(NamedOnnxValue.CreateFromTensor("phDurs",
                 new DenseTensor<long>(phDurs.ToArray(), new int[] { phonemes.Count })));
-            using (var session = Onnx.getInferenceSession(Data.VogenRes.f0_man, force_cpu:true)) {
+            using (var session = Onnx.getInferenceSession(Data.VogenRes.f0_man, force_cpu: true)) {
                 using var outputs = session.Run(inputs);
                 var f0Out = outputs.First().AsTensor<float>();
                 var f0Path = Path.Join(PathManager.Inst.CachePath, $"vog-{phrase.hash:x16}-f0.npy");
@@ -169,7 +169,7 @@ namespace OpenUtau.Core.Vogen {
                 new DenseTensor<float>(breAmp, new int[] { 1, f0.Length })));
             double[,] sp;
             double[,] ap;
-            using (var session = Onnx.getInferenceSession(singer.model, force_cpu:true)) {
+            using (var session = Onnx.getInferenceSession(singer.model, force_cpu: true)) {
                 using var outputs = session.Run(inputs);
                 var mgc = outputs.First().AsTensor<float>().Select(f => (double)f).ToArray();
                 var bap = outputs.Last().AsTensor<float>().Select(f => (double)f).ToArray();
@@ -215,7 +215,7 @@ namespace OpenUtau.Core.Vogen {
                 return null;
             }
             var result = new RenderPitchResult() {
-                tones = np.Load<float[]>(f0Path).Select(f => (float)MusicMath.FreqToTone(f, phrase.equalTemperament, phrase.concertPitch, phrase.concertPitchNote)).ToArray(),
+                tones = np.Load<float[]>(f0Path).Select(f => (float)MusicMath.FreqToTone(f, phrase.Config)).ToArray(),
             };
             result.ticks = new float[result.tones.Length];
             var layout = Layout(phrase);

@@ -197,7 +197,7 @@ namespace OpenUtau.App.ViewModels {
                             Command = SetSnapUnitCommand,
                             CommandParameter = div,
                         }));
-                    string[] KeysInOctave = new string[]{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+                    string[] KeysInOctave = new string[] { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
                     Keys.Clear();
                     Keys.AddRange(KeysInOctave
                         .Select((key, index) => new MenuItemViewModel {
@@ -340,10 +340,10 @@ namespace OpenUtau.App.ViewModels {
             SnapDivText = $"(1/{div})";
         }
 
-        private void UpdateKey(){
+        private void UpdateKey() {
             Key = userKey;
-            string[] KeysInOctave = new string[]{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-            KeyText = "1="+KeysInOctave[userKey];
+            string[] KeysInOctave = new string[] { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+            KeyText = "1=" + KeysInOctave[userKey];
         }
 
         public void OnXZoomed(Point position, double delta) {
@@ -480,7 +480,7 @@ namespace OpenUtau.App.ViewModels {
                 targetHeight = PortraitHeight;
             }
             int targetWidth = (int)Math.Round(targetHeight * Portrait.Size.Width / Portrait.Size.Height);
-            if(targetWidth == 0){
+            if (targetWidth == 0) {
                 targetWidth = 1;
             }
             return Portrait.CreateScaledBitmap(new PixelSize(targetWidth, targetHeight));
@@ -533,7 +533,7 @@ namespace OpenUtau.App.ViewModels {
                                 Portrait = null;
                                 portraitSource = null;
                             } else {
-                                using (var stream = new MemoryStream(data)) { 
+                                using (var stream = new MemoryStream(data)) {
                                     Portrait = ResizePortrait(new Bitmap(stream), singer.PortraitHeight);
                                     portraitSource = singer.Portrait;
                                 }
@@ -812,7 +812,7 @@ namespace OpenUtau.App.ViewModels {
             notes.Sort((a, b) => a.position.CompareTo(b.position));
             //Ignore slur lyrics
             var mergedLyrics = String.Join("", notes.Select(x => x.lyric).Where(l => !l.StartsWith("+")));
-            if(mergedLyrics == ""){ //If all notes are slur, the merged note is single slur note
+            if (mergedLyrics == "") { //If all notes are slur, the merged note is single slur note
                 mergedLyrics = notes[0].lyric;
             }
             DocManager.Inst.StartUndoGroup();
@@ -922,7 +922,7 @@ namespace OpenUtau.App.ViewModels {
         public async void PasteSelectedParams(PianoRollWindow window) {
             if (Part != null && DocManager.Inst.NotesClipboard != null && DocManager.Inst.NotesClipboard.Count > 0) {
                 var selectedNotes = Selection.ToList();
-                if(selectedNotes.Count == 0) {
+                if (selectedNotes.Count == 0) {
                     return;
                 }
 
@@ -1067,6 +1067,13 @@ namespace OpenUtau.App.ViewModels {
                     UnloadPart();
                     LoadPortrait(null, null);
                     PrimaryKeyNotSupported = !IsExpSupported(PrimaryKey);
+                    this.RaisePropertyChanged(nameof(Project));
+                    this.RaisePropertyChanged(nameof(EqualTemperament));
+                    this.RaisePropertyChanged(nameof(ConcertPitch));
+                    this.RaisePropertyChanged(nameof(ConcertPitchNote));
+                    this.RaisePropertyChanged(nameof(MaxTone));
+                    this.RaisePropertyChanged(nameof(TrackCount));
+                    this.RaisePropertyChanged(nameof(VScrollBarMax));
                 } else if (cmd is SelectExpressionNotification selectExp) {
                     SecondaryKey = PrimaryKey;
                     PrimaryKey = selectExp.ExpKey;
@@ -1153,6 +1160,15 @@ namespace OpenUtau.App.ViewModels {
                     }
                 }
                 PrimaryKeyNotSupported = !IsExpSupported(PrimaryKey);
+            } else if (cmd is ConfigureMicrotonalCommand) {
+                this.RaisePropertyChanged(nameof(Project));
+                this.RaisePropertyChanged(nameof(EqualTemperament));
+                this.RaisePropertyChanged(nameof(ConcertPitch));
+                this.RaisePropertyChanged(nameof(ConcertPitchNote));
+                this.RaisePropertyChanged(nameof(MaxTone));
+                this.RaisePropertyChanged(nameof(TrackCount));
+                this.RaisePropertyChanged(nameof(VScrollBarMax));
+                MessageBus.Current.SendMessage(new NotesRefreshEvent());
             }
         }
 

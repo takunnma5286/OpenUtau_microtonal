@@ -140,7 +140,7 @@ namespace OpenUtau.Core {
         }
     }
 
-    public class KeyCommand : ProjectCommand{
+    public class KeyCommand : ProjectCommand {
         public readonly int oldKey;
         public readonly int newKey;
         public KeyCommand(UProject project, int key) : base(project) {
@@ -202,5 +202,44 @@ namespace OpenUtau.Core {
                 .ForEach(part => part.AfterLoad(project, project.tracks[part.trackNo]));
             project.ValidateFull();
         }
+    }
+    public class ConfigureMicrotonalCommand : ProjectCommand {
+        public readonly int OldET;
+        public readonly double OldCP;
+        public readonly int OldCPN;
+        public readonly double[]? OldMap;
+
+        public readonly int NewET;
+        public readonly double NewCP;
+        public readonly int NewCPN;
+        public readonly double[]? NewMap;
+
+        public ConfigureMicrotonalCommand(UProject project, int et, double cp, int cpn, double[]? map) : base(project) {
+            OldET = project.EqualTemperament;
+            OldCP = project.ConcertPitch;
+            OldCPN = project.ConcertPitchNote;
+            OldMap = project.TuningMap;
+
+            NewET = et;
+            NewCP = cp;
+            NewCPN = cpn;
+            NewMap = map;
+        }
+
+        public override void Execute() {
+            project.EqualTemperament = NewET;
+            project.ConcertPitch = NewCP;
+            project.ConcertPitchNote = NewCPN;
+            project.TuningMap = NewMap;
+        }
+
+        public override void Unexecute() {
+            project.EqualTemperament = OldET;
+            project.ConcertPitch = OldCP;
+            project.ConcertPitchNote = OldCPN;
+            project.TuningMap = OldMap;
+        }
+
+        public override string ToString() => "Configure microtonal settings";
     }
 }

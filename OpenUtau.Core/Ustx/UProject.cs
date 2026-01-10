@@ -43,6 +43,7 @@ namespace OpenUtau.Core.Ustx {
         public int EqualTemperament = 12;
         public double ConcertPitch = 440.0;
         public int ConcertPitchNote = 69;
+        public double[]? TuningMap = null;
 
         [Obsolete("Since ustx v0.6")] public double bpm = 120;
         [Obsolete("Since ustx v0.6")] public int beatPerBar = 4;

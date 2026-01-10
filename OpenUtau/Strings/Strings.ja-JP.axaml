@@ -657,4 +657,5 @@
   <system:String x:Key="pjsettings.cancel">キャンセル</system:String>
   <system:String x:Key="pjsettings.apply">適用</system:String>
   <system:String x:Key="pjsettings.caption">プロジェクトの設定</system:String>
+  <system:String x:Key="pjsettings.importtun">Tunファイルをインポート</system:String>
 </ResourceDictionary>

@@ -7,6 +7,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public int EqualTemperament { get; set; }
         [Reactive] public double ConcertPitch { get; set; }
         [Reactive] public int ConcertPitchNote { get; set; }
+        [Reactive] public double[]? TuningMap { get; set; }
 
         private UProject project;
 
@@ -15,52 +16,23 @@ namespace OpenUtau.App.ViewModels {
             EqualTemperament = project.EqualTemperament;
             ConcertPitch = project.ConcertPitch;
             ConcertPitchNote = project.ConcertPitchNote;
+            TuningMap = project.TuningMap;
         }
 
         public void Apply() {
             if (project.EqualTemperament != EqualTemperament ||
                 project.ConcertPitch != ConcertPitch ||
-                project.ConcertPitchNote != ConcertPitchNote) {
+                project.ConcertPitchNote != ConcertPitchNote ||
+                project.TuningMap != TuningMap) {
                 DocManager.Inst.StartUndoGroup();
-                DocManager.Inst.ExecuteCmd(new ConfigureProjectCommand(
+                DocManager.Inst.ExecuteCmd(new ConfigureMicrotonalCommand(
                     project,
-                    newEqualTemperament: EqualTemperament,
-                    newConcertPitch: ConcertPitch,
-                    newConcertPitchNote: ConcertPitchNote));
+                    EqualTemperament,
+                    ConcertPitch,
+                    ConcertPitchNote,
+                    TuningMap));
                 DocManager.Inst.EndUndoGroup();
             }
-        }
-    }
-
-    public class ConfigureProjectCommand : UCommand {
-        private readonly UProject project;
-        private readonly int newEqualTemperament;
-        private readonly double newConcertPitch;
-        private readonly int newConcertPitchNote;
-        private readonly int oldEqualTemperament;
-        private readonly double oldConcertPitch;
-        private readonly int oldConcertPitchNote;
-
-        public ConfigureProjectCommand(UProject project, int newEqualTemperament, double newConcertPitch, int newConcertPitchNote) {
-            this.project = project;
-            this.newEqualTemperament = newEqualTemperament;
-            this.newConcertPitch = newConcertPitch;
-            this.newConcertPitchNote = newConcertPitchNote;
-            this.oldEqualTemperament = project.EqualTemperament;
-            this.oldConcertPitch = project.ConcertPitch;
-            this.oldConcertPitchNote = project.ConcertPitchNote;
-        }
-
-        public override string ToString() => "Configure project";
-        public override void Execute() {
-            project.EqualTemperament = newEqualTemperament;
-            project.ConcertPitch = newConcertPitch;
-            project.ConcertPitchNote = newConcertPitchNote;
-        }
-        public override void Unexecute() {
-            project.EqualTemperament = oldEqualTemperament;
-            project.ConcertPitch = oldConcertPitch;
-            project.ConcertPitchNote = oldConcertPitchNote;
         }
     }
 }

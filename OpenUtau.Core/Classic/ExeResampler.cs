@@ -45,7 +45,7 @@ namespace OpenUtau.Classic {
             }
             for (int i = 0; i < lines.Count; i++) {
                 if (lines[i].StartsWith("resampler-compatibility")) {
-                    if(lines[i] == "resampler-compatibility on"){
+                    if (lines[i] == "resampler-compatibility on") {
                         //moreconfig.txt is correct
                         return;
                     } else {
@@ -72,13 +72,13 @@ namespace OpenUtau.Classic {
             //Load Resampler Manifest
             Manifest = LoadManifest();
             //Make moresampler happy
-            try{
-                if(Path.GetFileNameWithoutExtension(filePath) == "moresampler"){
+            try {
+                if (Path.GetFileNameWithoutExtension(filePath) == "moresampler") {
                     //Load moreconfig.txt under the same folder with filePath
                     var moreConfigPath = Path.Combine(Path.GetDirectoryName(filePath), "moreconfig.txt");
                     FixMoreConfig(moreConfigPath);
                 }
-            } catch (Exception ex){
+            } catch (Exception ex) {
                 Log.Error($"Failed fixing moreconfig.txt for {filePath}: {ex}");
             }
         }
@@ -100,7 +100,7 @@ namespace OpenUtau.Classic {
             var threadId = Thread.CurrentThread.ManagedThreadId;
             string tmpFile = args.outputFile;
             string ArgParam = FormattableString.Invariant(
-                $"\"{args.inputTemp}\" \"{tmpFile}\" {MusicMath.GetToneName(args.tone, args.equalTemperament)} {args.velocity} \"{args.GetFlagsString()}\" {args.offset} {args.durRequired} {args.consonant} {args.cutoff} {args.volume} {args.modulation} !{args.tempo} {Base64.Base64EncodeInt12(args.pitches)} {args.equalTemperament} {args.concertPitch} {args.concertPitchNote}");
+                $"\"{args.inputTemp}\" \"{tmpFile}\" {MusicMath.GetToneName(args.tone, args.Config.EqualTemperament)} {args.velocity} \"{args.GetFlagsString()}\" {args.offset} {args.durRequired} {args.consonant} {args.cutoff} {args.volume} {args.modulation} !{args.tempo} {Base64.Base64EncodeInt12(args.pitches)} {args.Config.EqualTemperament} {args.Config.ConcertPitch} {args.Config.ConcertPitchNote}");
             logger.Information($" > [thread-{threadId}] {FilePath} {ArgParam}");
             if (useWine) {
                 ProcessRunner.Run(winePath, $"{FilePath} {ArgParam}", logger);
@@ -122,7 +122,7 @@ namespace OpenUtau.Classic {
         }
 
         public bool SupportsFlag(string abbr) {
-            if(Manifest == null || !Manifest.expressionFilter){
+            if (Manifest == null || !Manifest.expressionFilter) {
                 return true;
             }
             return Manifest.expressions.ContainsKey(abbr);

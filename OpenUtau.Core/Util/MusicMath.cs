@@ -2,6 +2,22 @@
 using System.Collections.Generic;
 
 namespace OpenUtau.Core {
+    public class MicrotonalConfig {
+        public int EqualTemperament = 12;
+        public double ConcertPitch = 440.0;
+        public int ConcertPitchNote = 69;
+
+        public MicrotonalConfig() { }
+
+        public MicrotonalConfig(int equalTemperament, double concertPitch, int concertPitchNote) {
+            EqualTemperament = equalTemperament;
+            ConcertPitch = concertPitch;
+            ConcertPitchNote = concertPitchNote;
+        }
+
+        public double[]? TuningMap = null;
+    }
+
     public static class MusicMath {
         public enum KeyColor { White, Black }
 
@@ -30,7 +46,7 @@ namespace OpenUtau.Core {
             { "B", 11 },
         };
 
-        public static readonly string[] Solfeges = { 
+        public static readonly string[] Solfeges = {
             "do",
             "",
             "re",
@@ -128,7 +144,7 @@ namespace OpenUtau.Core {
         const double ep = 0.001;
 
         public static double SinEasingInOut(double x0, double x1, double y0, double y1, double x) {
-            if(x1 - x0 < ep){
+            if (x1 - x0 < ep) {
                 return y1;
             }
             return y0 + (y1 - y0) * (1 - Math.Cos((x - x0) / (x1 - x0) * Math.PI)) / 2;
@@ -139,7 +155,7 @@ namespace OpenUtau.Core {
         }
 
         public static double SinEasingIn(double x0, double x1, double y0, double y1, double x) {
-            if(x1 - x0 < ep){
+            if (x1 - x0 < ep) {
                 return y1;
             }
             return y0 + (y1 - y0) * (1 - Math.Cos((x - x0) / (x1 - x0) * Math.PI / 2));
@@ -150,7 +166,7 @@ namespace OpenUtau.Core {
         }
 
         public static double SinEasingOut(double x0, double x1, double y0, double y1, double x) {
-            if(x1 - x0 < ep){
+            if (x1 - x0 < ep) {
                 return y1;
             }
             return y0 + (y1 - y0) * Math.Sin((x - x0) / (x1 - x0) * Math.PI / 2);
@@ -161,7 +177,7 @@ namespace OpenUtau.Core {
         }
 
         public static double Linear(double x0, double x1, double y0, double y1, double x) {
-            if(x1 - x0 < ep){
+            if (x1 - x0 < ep) {
                 return y1;
             }
             return y0 + (y1 - y0) * (x - x0) / (x1 - x0);
@@ -197,19 +213,88 @@ namespace OpenUtau.Core {
             return Math.Log10(v) * 20;
         }
 
+        private static List<double> _frequencyMap = new List<double>();
+        private static int _cacheEt = -1;
+        private static double _cacheConcertPitch = -1;
+        private static int _cacheCenterNote = -1;
+        private static double[]? _cacheTuningMap = null;
+
+        private static void UpdateFrequencyMap(MicrotonalConfig config) {
+            if (_cacheEt == config.EqualTemperament &&
+                _cacheConcertPitch == config.ConcertPitch &&
+                _cacheCenterNote == config.ConcertPitchNote &&
+                _cacheTuningMap == config.TuningMap) {
+                return;
+            }
+
+            _frequencyMap.Clear();
+            _cacheEt = config.EqualTemperament;
+            _cacheConcertPitch = config.ConcertPitch;
+            _cacheCenterNote = config.ConcertPitchNote;
+            _cacheTuningMap = config.TuningMap;
+
+            if (config.TuningMap != null) {
+                _frequencyMap.AddRange(config.TuningMap);
+            } else {
+                for (int i = 0; i <= 127; i++) {
+                    double a = Math.Pow(2, 1.0 / config.EqualTemperament);
+                    _frequencyMap.Add(config.ConcertPitch * Math.Pow(a, i - config.ConcertPitchNote));
+                }
+            }
+        }
+
         public static double ToneToFreq(int tone, int equalTemperament = 12, double concertPitch = 440.0, int concertPitchNote = 69) {
-            double a = Math.Pow(2, 1.0 / equalTemperament);
-            return concertPitch * Math.Pow(a, tone - concertPitchNote);
+            return ToneToFreq(tone, new MicrotonalConfig(equalTemperament, concertPitch, concertPitchNote));
+        }
+
+        public static double ToneToFreq(int tone, MicrotonalConfig config) {
+            UpdateFrequencyMap(config);
+            if (tone >= 0 && tone < _frequencyMap.Count) {
+                return _frequencyMap[tone];
+            }
+            throw new ArgumentOutOfRangeException(nameof(tone), $"Tone must be between 0 and 127. Value: {tone}");
         }
 
         public static double ToneToFreq(double tone, int equalTemperament = 12, double concertPitch = 440.0, int concertPitchNote = 69) {
-            double a = Math.Pow(2, 1.0 / equalTemperament);
-            return concertPitch * Math.Pow(a, tone - concertPitchNote);
+            return ToneToFreq(tone, new MicrotonalConfig(equalTemperament, concertPitch, concertPitchNote));
+        }
+
+        public static double ToneToFreq(double tone, MicrotonalConfig config) {
+            UpdateFrequencyMap(config);
+            int intTone = (int)Math.Floor(tone);
+            if (intTone >= 0 && intTone < _frequencyMap.Count - 1) {
+                double frac = tone - intTone;
+                return _frequencyMap[intTone] * (1.0 - frac) + _frequencyMap[intTone + 1] * frac;
+            } else if (intTone == _frequencyMap.Count - 1 && Math.Abs(tone - intTone) < 1e-9) {
+                return _frequencyMap[intTone];
+            }
+            throw new ArgumentOutOfRangeException(nameof(tone), $"Tone must be between 0 and 127. Value: {tone}");
         }
 
         public static double FreqToTone(double freq, int equalTemperament = 12, double concertPitch = 440.0, int concertPitchNote = 69) {
-            double a = Math.Pow(2, 1.0 / equalTemperament);
-            return Math.Log(freq / concertPitch, a) + concertPitchNote;
+            return FreqToTone(freq, new MicrotonalConfig(equalTemperament, concertPitch, concertPitchNote));
+        }
+
+        public static double FreqToTone(double freq, MicrotonalConfig config) {
+            if (config.TuningMap != null) {
+                UpdateFrequencyMap(config);
+                int index = _frequencyMap.BinarySearch(freq);
+                if (index >= 0) {
+                    return index;
+                }
+                int next = ~index;
+                if (next == 0) {
+                    return 0;
+                }
+                if (next >= _frequencyMap.Count) {
+                    return _frequencyMap.Count - 1;
+                }
+                double f0 = _frequencyMap[next - 1];
+                double f1 = _frequencyMap[next];
+                return (next - 1) + (freq - f0) / (f1 - f0);
+            }
+            double a = Math.Pow(2, 1.0 / config.EqualTemperament);
+            return Math.Log(freq / config.ConcertPitch, a) + config.ConcertPitchNote;
         }
 
         public static List<int> GetSnapDivs(int resolution) {

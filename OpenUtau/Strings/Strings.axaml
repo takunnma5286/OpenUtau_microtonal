@@ -710,4 +710,5 @@ General
   <system:String x:Key="pjsettings.cancel">Cancel</system:String>
   <system:String x:Key="pjsettings.apply">Apply</system:String>
   <system:String x:Key="pjsettings.caption">Project Settings</system:String>
+  <system:String x:Key="pjsettings.importtun">Import Tun</system:String>
 </ResourceDictionary>

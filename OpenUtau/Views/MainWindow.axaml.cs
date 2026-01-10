@@ -547,6 +547,8 @@ namespace OpenUtau.App.Views {
             }
         }
 
+
+
         async void OnMenuExportMixdown(object sender, RoutedEventArgs args) {
             var project = DocManager.Inst.Project;
             var file = await FilePicker.SaveFileAboutProject(
@@ -664,6 +666,8 @@ namespace OpenUtau.App.Views {
                 OpenUtau.Core.Format.MidiWriter.Save(file, project);
             }
         }
+
+
 
         private async Task<bool> WarnToSave(UProject project) {
             if (string.IsNullOrEmpty(project.FilePath)) {

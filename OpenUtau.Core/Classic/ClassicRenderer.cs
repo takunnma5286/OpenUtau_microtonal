@@ -59,7 +59,7 @@ namespace OpenUtau.Classic {
         public Task<RenderResult> RenderInternal(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender) {
             var resamplerItems = new List<ResamplerItem>();
             foreach (var phone in phrase.phones) {
-                resamplerItems.Add(new ResamplerItem(phrase, phone));
+                resamplerItems.Add(new ResamplerItem(phrase, phone, true));
             }
             var task = Task.Run(() => {
                 Parallel.ForEach(source: resamplerItems, parallelOptions: new ParallelOptions() {
@@ -69,7 +69,7 @@ namespace OpenUtau.Classic {
                         if (!(item.resampler is WorldlineResampler)) {
                             VoicebankFiles.Inst.CopySourceTemp(item.inputFile, item.inputTemp);
                         }
-                        if(!item.phone.direct){
+                        if (!item.phone.direct) {
                             lock (Renderers.GetCacheLock(item.outputFile)) {
                                 item.resampler.DoResamplerReturnsFile(item, Log.Logger);
                             }
@@ -98,7 +98,7 @@ namespace OpenUtau.Classic {
         public Task<RenderResult> RenderExternal(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender) {
             var resamplerItems = new List<ResamplerItem>();
             foreach (var phone in phrase.phones) {
-                resamplerItems.Add(new ResamplerItem(phrase, phone));
+                resamplerItems.Add(new ResamplerItem(phrase, phone, true));
             }
             var task = Task.Run(() => {
                 string progressInfo = $"Track {trackNo + 1} : {phrase.wavtool} \"{string.Join(" ", phrase.phones.Select(p => p.phoneme))}\"";
@@ -139,7 +139,7 @@ namespace OpenUtau.Classic {
         }
 
         public UExpressionDescriptor[] GetSuggestedExpressions(USinger singer, URenderSettings renderSettings) {
-            var manifest= renderSettings.Resampler.Manifest;
+            var manifest = renderSettings.Resampler.Manifest;
             if (manifest == null) {
                 return new UExpressionDescriptor[] { };
             }

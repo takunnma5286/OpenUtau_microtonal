@@ -164,9 +164,7 @@ namespace OpenUtau.Core.Render {
 
     public class RenderPhrase {
         public readonly USinger singer;
-        public readonly int equalTemperament;
-        public readonly double concertPitch;
-        public readonly int concertPitchNote;
+        public readonly MicrotonalConfig Config; // Added property
         public readonly TimeAxis timeAxis;
 
         public readonly int position;
@@ -183,6 +181,7 @@ namespace OpenUtau.Core.Render {
         public readonly RenderPhone[] phones;
 
         public readonly float[] pitches;
+        public readonly float[] pitches12ET; // Added field
         public readonly float[] pitchesBeforeDeviation;
         public readonly float[] dynamics;
         public readonly float[] gender;
@@ -216,9 +215,9 @@ namespace OpenUtau.Core.Render {
             }
 
             singer = track.Singer;
-            equalTemperament = project.EqualTemperament;
-            concertPitch = project.ConcertPitch;
-            concertPitchNote = project.ConcertPitchNote;
+            Config = new MicrotonalConfig(project.EqualTemperament, project.ConcertPitch, project.ConcertPitchNote) {
+                TuningMap = project.TuningMap
+            };
             renderer = track.RendererSettings.Renderer;
             wavtool = track.RendererSettings.wavtool;
             timeAxis = project.timeAxis.Clone();
@@ -244,17 +243,31 @@ namespace OpenUtau.Core.Render {
             const int pitchInterval = 5;
             int pitchStart = position - part.position - leading;
             pitches = new float[(end - part.position - pitchStart) / pitchInterval + 1];
+            pitches12ET = new float[pitches.Length];
             int index = 0;
+
+            float Get12ETPitch(UNote note) {
+                double freq = MusicMath.ToneToFreq(note.tone, Config);
+                if (note.tuning != 0) {
+                    freq *= Math.Pow(2, note.tuning / 1200.0);
+                }
+                return (float)(Math.Log(freq / 440.0, 2) * 12 + 69);
+            }
+
             // Create flat pitches
             foreach (var note in uNotes) {
+                float etPitch = Get12ETPitch(note) * 100;
+                float semanticPitch = note.AdjustedTone * 100;
                 while (pitchStart + index * pitchInterval < note.End && index < pitches.Length) {
-                    pitches[index] = note.AdjustedTone * 100;
+                    pitches[index] = semanticPitch;
+                    pitches12ET[index] = etPitch;
                     index++;
                 }
             }
             index = Math.Max(1, index);
             while (index < pitches.Length) {
                 pitches[index] = pitches[index - 1];
+                pitches12ET[index] = pitches12ET[index - 1];
                 index++;
             }
             // Vibrato
@@ -266,14 +279,18 @@ namespace OpenUtau.Core.Render {
                 int endIndex = Math.Min(pitches.Length, (note.End - pitchStart) / pitchInterval);
                 // Use tempo at note start to calculate vibrato period.
                 float nPeriod = (float)(note.vibrato.period / note.DurationMs);
+                float etPitch = Get12ETPitch(note);
                 for (int i = startIndex; i < endIndex; ++i) {
                     float nPos = (float)(pitchStart + i * pitchInterval - note.position) / note.duration;
                     var point = note.vibrato.Evaluate(nPos, nPeriod, note);
+                    // point.Y is (AdjustedTone + vibratoDelta).
                     pitches[i] = point.Y * 100;
+                    pitches12ET[i] = (etPitch + (point.Y - note.AdjustedTone)) * 100;
                 }
             }
             // Pitch points
             foreach (var note in uNotes) {
+                float etPitch = Get12ETPitch(note);
                 var pitchPoints = note.pitch.data
                     .Select(point => {
                         double nodePosMs = timeAxis.TickPosToMsPos(part.position + note.position);
@@ -304,7 +321,36 @@ namespace OpenUtau.Core.Render {
                         float basePitch = note.Prev != null && x < note.Prev.End
                             ? note.Prev.AdjustedTone * 100
                             : note.AdjustedTone * 100;
-                        pitches[index] += pitch - basePitch;
+
+                        // 12ET Logic
+                        float pitch12ET_LastY = lastPoint.Y - note.AdjustedTone * 100 + etPitch * 100; // Shift PitchPoint to ET base? No, PitchPoint Y is absolute semantic.
+                        // Actually easier: calculate delta from semantic base, add to ET base.
+                        float delta = pitch - basePitch;
+                        // wait, basePitch changes per note segment.
+
+                        pitches[index] += delta;
+
+                        // For 12ET:
+                        // Base pitch for 12ET:
+                        float basePitch12ET = note.Prev != null && x < note.Prev.End
+                            ? Get12ETPitch(note.Prev) * 100
+                            : etPitch * 100;
+                        pitches12ET[index] += delta; // Assuming delta (cents) is same for both
+                        // Note: If Tuning Map stretches the scale, cents delta might map differently?
+                        // But usually Pitch Bends / Vibrato are defined in Cents.
+                        // If we assume Cents are Cents, adding delta is correct.
+                        // BUT `pitches[index]` was initialized to Flat Semantic.
+                        // `pitches12ET[index]` was initialized to Flat 12ET.
+                        // So `pitches[index] += delta` adds curve.
+                        // `pitches12ET[index] += delta` adds same curve.
+                        // Wait, logic in previous code was: `pitches[index] += pitch - basePitch`.
+                        // `pitches[index]` contains Flat Base.
+                        // So `pitches[index] = FlatBase + (InterpolatedPoint - BasePitch)`.
+                        // For 12ET: `pitches12ET[index] = FlatBase12ET + (InterpolatedPoint - BasePitch)`.
+                        // `InterpolatedPoint` is in Semantic Scale. `BasePitch` is in Semantic Scale.
+                        // So `InterpolatedPoint - BasePitch` is the Delta in Cents.
+                        // This seems correct.
+
                         index++;
                         x += pitchInterval;
                     }
@@ -356,7 +402,7 @@ namespace OpenUtau.Core.Render {
                             var diff = MusicMath.Linear(frqPointMin, frqPointMax, frq.toneDiffStretch[frqPointMin], frq.toneDiffStretch[frqPointMax], frqPoint);
                             diff = diff * phonemeModp / 100;
                             diff = Fade(diff, pit);
-                            pitches[pit] = pitches[pit] + (float)(diff * 100);
+                            pitches[pit] = pitches[pit] + (float)(diff * 100 * (Config.EqualTemperament / 12.0));
                         }
                         for (int i = 0; startStretch + i - 1 >= startIndex; i--) {
                             var pit = startStretch + i - 1;
@@ -367,7 +413,7 @@ namespace OpenUtau.Core.Render {
                             var diff = MusicMath.Linear(frqPointMin, frqPointMax, frq.toneDiffFix[frqPointMin], frq.toneDiffFix[frqPointMax], frqPoint);
                             diff = diff * phonemeModp / 100;
                             diff = Fade(diff, pit);
-                            pitches[pit] = pitches[pit] + (float)(diff * 100);
+                            pitches[pit] = pitches[pit] + (float)(diff * 100 * (Config.EqualTemperament / 12.0));
                         }
                         double Fade(double diff, int pit) {
                             var percentage = (double)(pit - startIndex) / (endIndex - startIndex);
@@ -379,7 +425,7 @@ namespace OpenUtau.Core.Render {
                             }
                             return diff;
                         }
-                    } catch(Exception e) {
+                    } catch (Exception e) {
                         Log.Error(e, "Failed to compute mod plus.");
                     }
                 }
@@ -396,8 +442,8 @@ namespace OpenUtau.Core.Render {
 
             var curves = new List<Tuple<string, float[]>>();
 
-            foreach(var descriptor in project.expressions.Values) {
-                if(descriptor.type != UExpressionType.Curve) {
+            foreach (var descriptor in project.expressions.Values) {
+                if (descriptor.type != UExpressionType.Curve) {
                     continue;
                 }
                 var curve = part.curves.FirstOrDefault(c => c.abbr == descriptor.abbr);
@@ -415,14 +461,14 @@ namespace OpenUtau.Core.Render {
                 var curveSampled = SampleCurve(curve, pitchStart, pitches.Length, convert);
                 switch (curve.abbr) {
                     case Format.Ustx.PITD: break;
-                    case Format.Ustx.DYN : dynamics = curveSampled; break;
+                    case Format.Ustx.DYN: dynamics = curveSampled; break;
                     case Format.Ustx.SHFC: toneShift = curveSampled; break;
                     case Format.Ustx.GENC: gender = curveSampled; break;
                     case Format.Ustx.TENC: tension = curveSampled; break;
                     case Format.Ustx.BREC: breathiness = curveSampled; break;
                     case Format.Ustx.VOIC: voicing = curveSampled; break;
                     default:
-                        curves.Add(Tuple.Create(curve.abbr,curveSampled));
+                        curves.Add(Tuple.Create(curve.abbr, curveSampled));
                         break;
                 }
             }
@@ -473,9 +519,17 @@ namespace OpenUtau.Core.Render {
                     writer.Write(renderer?.ToString() ?? "");
                     writer.Write(wavtool ?? "");
                     writer.Write(timeAxis.Timestamp);
-                    writer.Write(equalTemperament);
-                    writer.Write(concertPitch);
-                    writer.Write(concertPitchNote);
+                    writer.Write(Config.EqualTemperament);
+                    writer.Write(Config.ConcertPitch);
+                    writer.Write(Config.ConcertPitchNote);
+                    if (Config.TuningMap != null) {
+                        writer.Write(1);
+                        foreach (var d in Config.TuningMap) {
+                            writer.Write(d);
+                        }
+                    } else {
+                        writer.Write(0);
+                    }
                     foreach (var phone in phones) {
                         writer.Write(phone.hash);
                     }
@@ -489,9 +543,9 @@ namespace OpenUtau.Core.Render {
                                 }
                             }
                         }
-                        foreach(var curve in curves) {
+                        foreach (var curve in curves) {
                             writer.Write(curve.Item1);
-                            foreach(var v in curve.Item2) {
+                            foreach (var v in curve.Item2) {
                                 writer.Write(v);
                             }
                         }
