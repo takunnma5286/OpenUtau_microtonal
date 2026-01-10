@@ -7,18 +7,18 @@ using OpenUtau.Core;
 //without potentially breaking the existing Enunu Phonemizers and renderers.
 namespace OpenUtau.Plugin.Builtin.EnunuOnnx {
     class EnunuConfig {
-        public string tablePath;
-        public string questionPath;
+        public string tablePath = string.Empty;
+        public string questionPath = string.Empty;
         public int sampleRate;
         public double framePeriod;
-        public string modelDir;
-        public string statsDir;
-        public EnunuDurationConfig duration;
-        public EnunuTimelagConfig timelag;
+        public string modelDir = string.Empty;
+        public string statsDir = string.Empty;
+        public EnunuDurationConfig duration = new EnunuDurationConfig();
+        public EnunuTimelagConfig timelag = new EnunuTimelagConfig();
 
         public static EnunuConfig Load(string configPath, Encoding encoding = null) {
             encoding = encoding ?? Encoding.UTF8;
-            var configTxt = File.ReadAllText(configPath,encoding);
+            var configTxt = File.ReadAllText(configPath, encoding);
             RawEnunuConfig config = Yaml.DefaultDeserializer.Deserialize<RawEnunuConfig>(configTxt);
             return config.Convert();
         }
@@ -26,24 +26,24 @@ namespace OpenUtau.Plugin.Builtin.EnunuOnnx {
 
 
     class EnunuTimelagConfig {
-        public string checkpoint;
-        public List<int> allowedRange;
-        public List<int> allowedRangeRest;
+        public string checkpoint = string.Empty;
+        public List<int> allowedRange = new List<int>();
+        public List<int> allowedRangeRest = new List<int>();
     }
     class EnunuDurationConfig {
-        public string checkpoint;
+        public string checkpoint = string.Empty;
 
     }
 
     class RawEnunuConfig {
-        public string tablePath;
-        public string questionPath;
+        public string tablePath = string.Empty;
+        public string questionPath = string.Empty;
         public int sampleRate;
         public double framePeriod;
-        public string modelDir;
-        public string statsDir;
-        public EnunuDurationConfig duration;
-        public EnunuTimelagConfig timelag;
+        public string modelDir = string.Empty;
+        public string statsDir = string.Empty;
+        public EnunuDurationConfig duration = new EnunuDurationConfig();
+        public EnunuTimelagConfig timelag = new EnunuTimelagConfig();
 
         public EnunuConfig Convert() {
             EnunuConfig enunuConfig = new EnunuConfig();

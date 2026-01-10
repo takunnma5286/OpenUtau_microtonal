@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using OpenUtau.Core;
+using Serilog;
 
 namespace OpenUtau.Colors;
 public class CustomTheme {
@@ -18,11 +19,16 @@ public class CustomTheme {
     }
 
     public static void Load() {
-        if (File.Exists(PathManager.Inst.ThemeFilePath)) {
-            Default = Yaml.DefaultDeserializer.Deserialize<ThemeYaml>(File.ReadAllText(PathManager.Inst.ThemeFilePath,
-                Encoding.UTF8));
-        } else {
-            Save();
+        try {
+            if (File.Exists(PathManager.Inst.ThemeFilePath)) {
+                Default = Yaml.DefaultDeserializer.Deserialize<ThemeYaml>(File.ReadAllText(PathManager.Inst.ThemeFilePath,
+                    Encoding.UTF8));
+            } else {
+                Save();
+            }
+        } catch (Exception e) {
+            Log.Error(e, "Failed to load custom theme.");
+            Default = new ThemeYaml();
         }
     }
 
