@@ -24,18 +24,18 @@ internal partial class Program {
 
         try {
             if (System.OperatingSystem.IsBrowser()) {
-                await System.Runtime.InteropServices.JavaScript.JSHost.ImportAsync("AppBundle/audio.js", "/AppBundle/audio.js?v=" + System.DateTime.Now.Ticks);
+                await System.Runtime.InteropServices.JavaScript.JSHost.ImportAsync("AppBundle/audio.js", "../AppBundle/audio.js?v=" + System.DateTime.Now.Ticks);
 
                 // Import and initialize Worldline WASM bridge
                 System.Console.WriteLine("[Program] Importing worldline_bridge module...");
-                await System.Runtime.InteropServices.JavaScript.JSHost.ImportAsync("worldline_bridge", "/AppBundle/worldline_bridge.js?v=" + System.DateTime.Now.Ticks);
+                await System.Runtime.InteropServices.JavaScript.JSHost.ImportAsync("worldline_bridge", "../AppBundle/worldline_bridge.js?v=" + System.DateTime.Now.Ticks);
                 System.Console.WriteLine("[Program] Initializing Worldline WASM...");
                 await OpenUtau.Core.Render.Worldline.InitWorldlineAsync();
                 System.Console.WriteLine("[Program] Worldline WASM initialized successfully!");
 
                 // Import file picker JS
                 System.Console.WriteLine("[Program] Importing file_picker module...");
-                await System.Runtime.InteropServices.JavaScript.JSHost.ImportAsync("AppBundle/file_picker.js", "/AppBundle/file_picker.js?v=" + System.DateTime.Now.Ticks);
+                await System.Runtime.InteropServices.JavaScript.JSHost.ImportAsync("AppBundle/file_picker.js", "../AppBundle/file_picker.js?v=" + System.DateTime.Now.Ticks);
                 OpenUtau.App.FilePicker.WasmFilePickerImplementation = OpenUtau.Browser.FilePickerInterop.PickFiles;
                 System.Console.WriteLine("[Program] Hooked up WASM file picker.");
 
