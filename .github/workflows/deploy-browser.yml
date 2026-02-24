@@ -1,0 +1,50 @@
+name: Deploy OpenUtau Browser
+
+on:
+  push:
+    branches:
+      - browser-build # 変更を反映させたいブランチ名に合わせてください
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # WASMビルドに必要なツールをインストール
+      - name: Install WASM Tools
+        run: dotnet workload install wasm-tools
+
+      # batファイルの内容を再現
+      - name: Build WASM
+        run: |
+          dotnet publish OpenUtau.Browser/OpenUtau.Browser.csproj \
+            -c Release \
+            -f net8.0-browser \
+            -o release-output
+
+      # GitHub Pages は `_` で始まるフォルダ（_framework等）を標準で無視するため、
+      # それを防ぐための .nojekyll ファイルを作成します
+      - name: Add .nojekyll file
+        run: touch release-output/wwwroot/.nojekyll
+
+      # GitHub Pages 用に成果物をアップロード
+      # publish/wwwroot フォルダが公開対象になります
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: release-output/wwwroot
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
