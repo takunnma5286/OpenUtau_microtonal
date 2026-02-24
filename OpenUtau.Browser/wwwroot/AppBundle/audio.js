@@ -14,6 +14,20 @@ export function initAudio() {
     }
     console.timeEnd("AudioContextCreation");
     console.log("AudioContext state:", audioCtx.state);
+
+    const unlockAudio = () => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => {
+                console.log("AudioContext resumed after user interaction");
+                document.removeEventListener('click', unlockAudio);
+                document.removeEventListener('touchstart', unlockAudio);
+                document.removeEventListener('keydown', unlockAudio);
+            });
+        }
+    };
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('touchstart', unlockAudio);
+    document.addEventListener('keydown', unlockAudio);
 }
 
 export function playAudio(data, sampleRate, channels) {

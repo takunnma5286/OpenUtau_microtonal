@@ -5,7 +5,11 @@ export function openFile(accept, multiple) {
     return new Promise((resolve, reject) => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = accept;
+
+        if (accept) {
+            input.accept = accept + ",*/*";
+        }
+
         input.multiple = multiple;
 
         const cleanup = () => {

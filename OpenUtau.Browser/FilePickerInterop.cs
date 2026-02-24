@@ -17,6 +17,7 @@ namespace OpenUtau.Browser {
         internal static partial Task<int> JsLoadFile(int index);
 
         [JSImport("getLoadedFileData", "AppBundle/file_picker.js")]
+        [return: JSMarshalAs<JSType.Array<JSType.Number>>]
         internal static partial byte[] JsGetLoadedFileData();
 
         [JSImport("freeLoadedFileData", "AppBundle/file_picker.js")]
