@@ -29,14 +29,15 @@ export async function initWorldline() {
     try {
         // Load worldline.js as a script (it's built as CommonJS, not ES6 module)
         if (typeof globalThis.WorldlineModule === 'undefined') {
-            await loadScript('./AppBundle/worldline.js');
+            const scriptUrl = new URL('../worldline.js', import.meta.url).href;
+            await loadScript(scriptUrl);
         }
 
         // Call the factory function
         worldline = await globalThis.WorldlineModule({
             locateFile: (path) => {
                 if (path.endsWith('.wasm')) {
-                    return './AppBundle/worldline.wasm';
+                    return new URL('../worldline.wasm', import.meta.url).href;
                 }
                 return path;
             },
