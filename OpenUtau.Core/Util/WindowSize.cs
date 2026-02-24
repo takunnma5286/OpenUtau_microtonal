@@ -1,4 +1,4 @@
-﻿namespace OpenUtau.Core.Util {
+namespace OpenUtau.Core.Util {
     public class WindowSize {
         public double Width { get; set; } = 1200;
         public double Height { get; set; } = 650;

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -10,6 +10,9 @@ using Avalonia.Styling;
 using OpenUtau.App.Views;
 using OpenUtau.Colors;
 using Serilog;
+using OpenUtau.Core;
+using OpenUtau.Classic;
+using System.Threading.Tasks;
 
 namespace OpenUtau.App {
     public class App : Application {
@@ -25,6 +28,42 @@ namespace OpenUtau.App {
             Log.Information("Framework initialization completed.");
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
                 desktop.MainWindow = new SplashWindow();
+            } else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView) {
+                try {
+                    ToolsManager.Inst.Initialize();
+                } catch (System.Exception ex) {
+                    Log.Error(ex, "Failed to initialize ToolsManager");
+                }
+                try {
+                    SingerManager.Inst.Initialize();
+                } catch (System.Exception ex) {
+                    Log.Error(ex, "Failed to initialize SingerManager");
+                }
+                DocManager.Inst.Initialize(Thread.CurrentThread, TaskScheduler.FromCurrentSynchronizationContext());
+                DocManager.Inst.PostOnUIThread = action => Avalonia.Threading.Dispatcher.UIThread.Post(action);
+
+                DocManager.Inst.PostOnUIThread = action => Avalonia.Threading.Dispatcher.UIThread.Post(action);
+
+
+                try {
+                    singleView.MainView = new MainView();
+                    (singleView.MainView as MainView)?.InitProject();
+                } catch (System.Exception ex) {
+                    Log.Error(ex, "Failed to initialize MainView");
+                    System.Console.WriteLine("CRITICAL ERROR: " + ex.ToString());
+                }
+
+                Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (sender, e) => {
+                    Log.Error(e.Exception, "Global Unhandled Exception (UI Thread)");
+                    System.Console.WriteLine("GLOBAL UNHANDLED EXCEPTION (UI): " + e.Exception.ToString());
+                    e.Handled = true;
+                };
+
+                TaskScheduler.UnobservedTaskException += (sender, e) => {
+                    Log.Error(e.Exception, "Global Unobserved Task Exception");
+                    System.Console.WriteLine("GLOBAL IDLE TASK EXCEPTION: " + e.Exception.ToString());
+                    e.SetObserved();
+                };
             }
 
             base.OnFrameworkInitializationCompleted();

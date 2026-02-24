@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,21 +29,107 @@ namespace OpenUtau.Api {
     internal class PhonemizerRunner : IDisposable {
         private readonly TaskScheduler mainScheduler;
         private readonly CancellationTokenSource shutdown = new CancellationTokenSource();
-        private readonly BlockingCollection<PhonemizerRequest> requests = new BlockingCollection<PhonemizerRequest>();
+        private readonly ConcurrentQueue<PhonemizerRequest> requests = new ConcurrentQueue<PhonemizerRequest>();
         private readonly object busyLock = new object();
         private Thread thread;
 
         public PhonemizerRunner(TaskScheduler mainScheduler) {
+            // Console.WriteLine($"[PhonemizerRunner] Creating instance {GetHashCode()}. IsWasm={OS.IsWasm()}");
             this.mainScheduler = mainScheduler;
-            thread = new Thread(PhonemizerLoop) {
-                IsBackground = true,
-                Priority = ThreadPriority.AboveNormal,
-            };
-            thread.Start();
+            if (!OS.IsWasm()) {
+                thread = new Thread(PhonemizerLoop) {
+                    IsBackground = true,
+                    Priority = ThreadPriority.AboveNormal,
+                };
+                thread.Start();
+            }
         }
 
         public void Push(PhonemizerRequest request) {
-            requests.Add(request);
+            requests.Enqueue(request);
+            // Console.WriteLine($"[PhonemizerRunner] Instance {GetHashCode()} Pushed request for part {request.part.name}, timestamp={request.timestamp}. QSize={requests.Count}");
+            if (OS.IsWasm()) {
+                ScheduleProcess();
+            }
+        }
+
+        private int isProcessing = 0;
+        private void ScheduleProcess() {
+            var original = Interlocked.CompareExchange(ref isProcessing, 1, 0);
+            if (original == 0) {
+                // Console.WriteLine($"[PhonemizerRunner] Instance {GetHashCode()} Starting new ProcessAsync task.");
+                // Successfully took the lock, start processing loop
+                ProcessAsync().ContinueWith(t => {
+                    // if (t.IsFaulted) Console.WriteLine($"[PhonemizerRunner] ProcessAsync Faulted: {t.Exception}");
+                });
+            } else {
+                // Console.WriteLine($"[PhonemizerRunner] Instance {GetHashCode()} ProcessAsync already running (isProcessing={original}).");
+            }
+        }
+
+        private async Task ProcessAsync() {
+            try {
+                // Removed initial await to ensure we enter the loop synchronously and don't hang on startup.
+                // await Task.Delay(1); 
+                // Console.WriteLine($"[PhonemizerRunner] Instance {GetHashCode()} ProcessAsync started execution (SYNC ENTRY).");
+
+                var parts = new HashSet<UVoicePart>();
+                var toRun = new List<PhonemizerRequest>();
+
+                while (true) {
+                    bool worked = false;
+                    while (requests.TryDequeue(out var request)) {
+                        // Console.WriteLine($"[PhonemizerRunner] Dequeued request for {request.part.name}");
+                        toRun.Add(request);
+                        worked = true;
+                    }
+
+                    if (toRun.Count > 0) {
+                        // Console.WriteLine($"[PhonemizerRunner] Processing batch of {toRun.Count} requests.");
+                        foreach (var req in toRun) {
+                            parts.Add(req.part);
+                        }
+                        for (int i = toRun.Count - 1; i >= 0; i--) {
+                            if (parts.Remove(toRun[i].part)) {
+                                // Console.WriteLine($"[PhonemizerRunner] Phonemizing {toRun[i].part.name}...");
+                                try {
+                                    // Heavy work, ensure we are not hogging the thread
+                                    // Removed await Task.Delay(10); // Causes hangs in WASM
+                                    // Console.WriteLine($"[PhonemizerRunner] Phonemizing {toRun[i].part.name}... (SYNC EXEC)");
+                                    var result = Phonemize(toRun[i]);
+                                    // Console.WriteLine($"[PhonemizerRunner] Phonemized {toRun[i].part.name}. Sending response...");
+                                    SendResponse(result);
+                                } catch (Exception e) {
+                                    // Console.WriteLine($"[PhonemizerRunner] Error in Phonemize: {e}");
+                                }
+                            }
+                        }
+                        parts.Clear();
+                        toRun.Clear();
+                    }
+
+                    if (!worked) {
+                        // Queue empty, double check if we can exit
+                        if (requests.IsEmpty) {
+                            // Console.WriteLine($"[PhonemizerRunner] Queue empty, exiting ProcessAsync.");
+                            break;
+                        }
+                    }
+
+                    // Always yield after a batch to keep UI responsive
+                    // Removed await Task.Delay(10);
+                }
+            } catch (Exception e) {
+                // Console.WriteLine($"[PhonemizerRunner] ProcessAsync Error: {e}");
+            } finally {
+                // Release lock
+                Interlocked.Exchange(ref isProcessing, 0);
+
+                // Double check race condition: if items added just as we were exiting
+                if (!requests.IsEmpty) {
+                    ScheduleProcess();
+                }
+            }
         }
 
         void PhonemizerLoop() {
@@ -51,9 +137,14 @@ namespace OpenUtau.Api {
             var toRun = new List<PhonemizerRequest>();
             while (!shutdown.IsCancellationRequested) {
                 lock (busyLock) {
-                    while (requests.TryTake(out var request)) {
+                    while (requests.TryDequeue(out var request)) {
                         toRun.Add(request);
                     }
+                    if (toRun.Count == 0) {
+                        Monitor.Wait(busyLock, 100);
+                        continue;
+                    }
+
                     foreach (var request in toRun) {
                         parts.Add(request.part);
                     }
@@ -64,17 +155,18 @@ namespace OpenUtau.Api {
                     }
                     parts.Clear();
                     toRun.Clear();
-                    try {
-                        toRun.Add(requests.Take(shutdown.Token));
-                    } catch (OperationCanceledException) { }
                 }
             }
         }
 
         void SendResponse(PhonemizerResponse response) {
             Task.Factory.StartNew(_ => {
+                // Console.WriteLine($"[PhonemizerRunner] SendResponse executing for {response.part.name}");
                 if (DocManager.Inst.Project.parts.Contains(response.part)) {
                     response.part.SetPhonemizerResponse(response);
+                    // Console.WriteLine($"[PhonemizerRunner] SetPhonemizerResponse called on part.");
+                } else {
+                    // Console.WriteLine($"[PhonemizerRunner] Part no longer in project.");
                 }
                 DocManager.Inst.Project.Validate(new ValidateOptions {
                     SkipTiming = true,
@@ -173,17 +265,11 @@ namespace OpenUtau.Api {
             };
         }
 
-        /// <summary>
-        /// Wait already queued phonemizer requests to finish.
-        /// Should only be used in command line mode.
-        /// </summary>
         public void WaitFinish() {
+            if (OS.IsWasm()) return;
             while (true) {
-                lock (busyLock) {
-                    if (requests.Count == 0) {
-                        return;
-                    }
-                }
+                if (requests.IsEmpty) return;
+                Thread.Sleep(10);
             }
         }
 
@@ -198,7 +284,6 @@ namespace OpenUtau.Api {
                 }
                 thread = null;
             }
-            requests.Dispose();
         }
     }
 }

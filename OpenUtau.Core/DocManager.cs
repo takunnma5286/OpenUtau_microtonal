@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -65,6 +65,8 @@ namespace OpenUtau.Core {
         }
 
         public void SearchAllPlugins() {
+            System.Console.WriteLine("[SearchAllPlugins] ========== METHOD CALLED - START ==========");
+            Log.Information("[SearchAllPlugins] Method called - START");
             const string kBuiltin = "OpenUtau.Plugin.Builtin.dll";
             var stopWatch = Stopwatch.StartNew();
             var phonemizerFactories = new List<PhonemizerFactory>();
@@ -78,8 +80,11 @@ namespace OpenUtau.Core {
                 }
                 files.AddRange(Directory.EnumerateFiles(PathManager.Inst.PluginsPath, "*.dll", SearchOption.AllDirectories));
             } catch (Exception e) {
+                System.Console.WriteLine($"[SearchAllPlugins] Exception during file search: {e.Message}");
                 Log.Error(e, "Failed to search plugins.");
             }
+            System.Console.WriteLine($"[SearchAllPlugins] Found {files.Count} DLL files to check");
+            Log.Information($"[SearchAllPlugins] Found {files.Count} DLL files to check");
             foreach (var file in files) {
                 Assembly assembly;
                 try {
@@ -98,14 +103,46 @@ namespace OpenUtau.Core {
                     continue;
                 }
             }
+            System.Console.WriteLine("[SearchAllPlugins] Checking current assembly for phonemizers...");
             foreach (var type in GetType().Assembly.GetExportedTypes()) {
                 if (!type.IsAbstract && type.IsSubclassOf(typeof(Phonemizer))) {
                     phonemizerFactories.Add(PhonemizerFactory.Get(type));
                 }
             }
+
+
+            System.Console.WriteLine("[SearchAllPlugins] Listing all loaded assemblies...");
+            // Debug: List all loaded assemblies
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
+                System.Console.WriteLine($"  - Assembly: {asm.GetName().Name}");
+                Log.Information($"Loaded Assembly: {asm.GetName().Name}");
+            }
+
+            System.Console.WriteLine("[SearchAllPlugins] Searching for OpenUtau.Plugin.Builtin assembly...");
+            // We explicitly check loaded assemblies for it.
+            var builtinAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "OpenUtau.Plugin.Builtin");
+            if (builtinAssembly != null) {
+                System.Console.WriteLine($"[SearchAllPlugins] ✅ Found builtin assembly: {builtinAssembly.FullName}");
+                Log.Information($"Found builtin assembly: {builtinAssembly.FullName}");
+                foreach (var type in builtinAssembly.GetExportedTypes()) {
+                    if (!type.IsAbstract && type.IsSubclassOf(typeof(Phonemizer))) {
+                        phonemizerFactories.Add(PhonemizerFactory.Get(type));
+                        System.Console.WriteLine($"[SearchAllPlugins]   + Added: {type.Name}");
+                        Log.Information($"Added builtin phonemizer: {type.FullName}");
+                    }
+                }
+            } else {
+                System.Console.WriteLine("[SearchAllPlugins] ❌ OpenUtau.Plugin.Builtin assembly NOT found!");
+                Log.Error("OpenUtau.Plugin.Builtin assembly NOT found in AppDomain.");
+            }
+
+            System.Console.WriteLine($"[SearchAllPlugins] Finalizing... Total collected: {phonemizerFactories.Count}");
             PhonemizerFactories = phonemizerFactories.OrderBy(factory => factory.tag).ToArray();
             stopWatch.Stop();
             Log.Information($"Search all plugins: {stopWatch.Elapsed}");
+            System.Console.WriteLine($"[SearchAllPlugins] ========== COMPLETE: {PhonemizerFactories.Length} phonemizers loaded ==========");
+            Log.Information($"[SearchAllPlugins] Total phonemizers loaded: {PhonemizerFactories.Length}");
         }
 
         #region Command Queue

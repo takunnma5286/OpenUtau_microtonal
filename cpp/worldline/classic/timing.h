@@ -3,19 +3,19 @@
 
 #include <vector>
 
-#include "worldline/model/model.h"
-#include "worldline/synth_request.h"
+#include "../model/model.h"
+#include "../synth_request.h"
 
 namespace worldline {
 
-double GetInTotalMs(Model& model, const SynthRequest& request);
+double GetInTotalMs(Model &model, const SynthRequest &request);
 
-std::vector<double> GetTimeMapping(Model& model, const SynthRequest& request);
+std::vector<double> GetTimeMapping(Model &model, const SynthRequest &request);
 
-void ShiftTimeMapping(std::vector<double>& mapping, double shift);
+void ShiftTimeMapping(std::vector<double> &mapping, double shift);
 
-void PadTimeMapping(std::vector<double>& mapping, int frames);
+void PadTimeMapping(std::vector<double> &mapping, int frames);
 
-}  // namespace worldline
+} // namespace worldline
 
-#endif  // WORLDLINE_CLASSIC_TIMING_H_
+#endif // WORLDLINE_CLASSIC_TIMING_H_

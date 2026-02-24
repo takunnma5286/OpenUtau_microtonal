@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.ML.OnnxRuntime;
@@ -18,6 +18,9 @@ namespace OpenUtau.Core {
         private static readonly Dictionary<int, OrtEpDevice> devices = initializeDevices();
 
         private static Dictionary<int, OrtEpDevice> initializeDevices() {
+            if (OS.IsWasm()) {
+                return new Dictionary<int, OrtEpDevice>();
+            }
             var env = OrtEnv.Instance();
             var ortDevices = env.GetEpDevices();
 
@@ -50,8 +53,8 @@ namespace OpenUtau.Core {
         }
 
         public static List<GpuInfo> getGpuInfo() {
-            if (OS.IsAndroid()) {
-                return new List<GpuInfo>();
+            if (OS.IsAndroid() || OS.IsWasm()) {
+                return new List<GpuInfo> { new GpuInfo { deviceId = 0, description = "CPU" } };
             }
             List<GpuInfo> gpuList = new List<GpuInfo>();
             var env = OrtEnv.Instance();
@@ -83,7 +86,7 @@ namespace OpenUtau.Core {
             return gpuList;
         }
 
-        private static SessionOptions getOnnxSessionOptions(){
+        private static SessionOptions getOnnxSessionOptions() {
             SessionOptions options = new SessionOptions();
             List<string> runnerOptions = getRunnerOptions();
             string runner = Preferences.Default.OnnxRunner;
@@ -98,8 +101,8 @@ namespace OpenUtau.Core {
                     var d = devices[Preferences.Default.OnnxGpu];
                     options.AppendExecutionProvider(
                         OrtEnv.Instance(),
-                        new List<OrtEpDevice> { d } ,
-                        new Dictionary<string, string> {}
+                        new List<OrtEpDevice> { d },
+                        new Dictionary<string, string> { }
                      );
                     break;
                 case "CoreML":

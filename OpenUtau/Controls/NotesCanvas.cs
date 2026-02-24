@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -136,66 +136,98 @@ namespace OpenUtau.App.Controls {
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
-            InvalidateVisual();
+            if (change.Property == TickWidthProperty ||
+                change.Property == TrackHeightProperty ||
+                change.Property == TickOffsetProperty ||
+                change.Property == TrackOffsetProperty ||
+                change.Property == PartProperty ||
+                change.Property == ShowPitchProperty ||
+                change.Property == ShowFinalPitchProperty ||
+                change.Property == ShowVibratoProperty) {
+                InvalidateVisual();
+            }
+        }
+
+        protected override Size MeasureOverride(Size availableSize) {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try {
+                return base.MeasureOverride(availableSize);
+            } finally {
+                stopwatch.Stop();
+                if (stopwatch.Elapsed.TotalMilliseconds > 3.0) {
+                    System.Console.WriteLine($"[LayoutPerf] NotesCanvas Measure: {stopwatch.Elapsed.TotalMilliseconds:F3}ms");
+                }
+            }
         }
 
         public override void Render(DrawingContext context) {
-            base.Render(context);
-            if (Part == null) {
-                return;
-            }
-            var viewModel = ((PianoRollViewModel?)DataContext)?.NotesViewModel;
-            if (viewModel == null) {
-                return;
-            }
-            DrawBackgroundForHitTest(context);
-            double leftTick = TickOffset - 480;
-            double rightTick = TickOffset + Bounds.Width / TickWidth + 480;
-            bool hidePitch = viewModel.TickWidth <= ViewConstants.PianoRollTickWidthShowDetails * 0.5;
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try {
+                base.Render(context);
+                if (Part == null) {
+                    return;
+                }
+                var viewModel = ((PianoRollViewModel?)DataContext)?.NotesViewModel;
+                if (viewModel == null) {
+                    return;
+                }
+                DrawBackgroundForHitTest(context);
+                double leftTick = TickOffset - 480;
+                double rightTick = TickOffset + Bounds.Width / TickWidth + 480;
+                bool hidePitch = viewModel.TickWidth <= ViewConstants.PianoRollTickWidthShowDetails * 0.5;
 
-            if (showGhostNotes) {
-                foreach (UPart otherPart in otherPartsInView) {
-                    if (otherPart is UVoicePart otherVoicePart) {
-                        var xOffset = otherVoicePart.position - Part.position;
-                        var brush = ThemeManager.NeutralAccentBrushSemi;
-                        if (otherVoicePart.trackNo >= 0) {
-                            var track = DocManager.Inst.Project.tracks[otherVoicePart.trackNo];
-                            brush = ThemeManager.GetTrackColor(track.TrackColor).AccentColorLightSemi;
-                        }
-
-                        foreach (var note in otherVoicePart.notes) {
-                            if (note.LeftBound + xOffset >= rightTick || note.RightBound + xOffset <= leftTick) {
-                                continue;
+                if (showGhostNotes) {
+                    foreach (UPart otherPart in otherPartsInView) {
+                        if (otherPart is UVoicePart otherVoicePart) {
+                            var xOffset = otherVoicePart.position - Part.position;
+                            var brush = ThemeManager.NeutralAccentBrushSemi;
+                            if (otherVoicePart.trackNo >= 0) {
+                                var track = DocManager.Inst.Project.tracks[otherVoicePart.trackNo];
+                                brush = ThemeManager.GetTrackColor(track.TrackColor).AccentColorLightSemi;
                             }
-                            RenderGhostNote(note, viewModel, context, xOffset, brush);
+
+                            foreach (var note in otherVoicePart.notes) {
+                                if (note.LeftBound + xOffset >= rightTick || note.RightBound + xOffset <= leftTick) {
+                                    continue;
+                                }
+                                RenderGhostNote(note, viewModel, context, xOffset, brush);
+                            }
                         }
                     }
                 }
-            }
 
-            foreach (var note in Part.notes) {
-                if (note.LeftBound >= rightTick || note.RightBound <= leftTick) {
-                    continue;
+                // OPTIMIZATION: Merge two loops into one to reduce overhead
+                // Previously: Loop 1 for note body, Loop 2 for pitch/vibrato
+                // Now: Single loop for all rendering
+                foreach (var note in Part.notes) {
+                    if (note.LeftBound >= rightTick || note.RightBound <= leftTick) {
+                        continue;
+                    }
+                    // Render note body
+                    RenderNoteBody(note, viewModel, context);
+
+                    // Render pitch/vibrato in same loop iteration
+                    if (!hidePitch) {
+                        if (ShowPitch) {
+                            RenderPitchBend(note, viewModel, context);
+                        }
+                        if (ShowPitch || ShowVibrato) {
+                            RenderVibrato(note, viewModel, context);
+                        }
+                        if (ShowVibrato && !note.Error) {
+                            RenderVibratoToggle(note, viewModel, context);
+                            RenderVibratoControl(note, viewModel, context);
+                        }
+                    }
                 }
-                RenderNoteBody(note, viewModel, context);
-            }
-            if (ShowFinalPitch && !hidePitch) {
-                RenderFinalPitch(leftTick, rightTick, viewModel, context);
-            }
-            foreach (var note in Part.notes) {
-                if (note.LeftBound >= rightTick || note.RightBound <= leftTick) {
-                    continue;
+
+                // Render FinalPitch after notes (separate as it processes phrases, not individual notes)
+                if (ShowFinalPitch && !hidePitch) {
+                    RenderFinalPitch(leftTick, rightTick, viewModel, context);
                 }
-                if (ShowPitch && !hidePitch) {
-                    RenderPitchBend(note, viewModel, context);
-                }
-                if ((ShowPitch || ShowVibrato) && !hidePitch) {
-                    RenderVibrato(note, viewModel, context);
-                }
-                if (ShowVibrato && !note.Error && !hidePitch) {
-                    RenderVibratoToggle(note, viewModel, context);
-                    RenderVibratoControl(note, viewModel, context);
-                }
+            } finally {
+                stopwatch.Stop();
+                System.Console.WriteLine($"[RenderPerf] NotesCanvas: {stopwatch.Elapsed.TotalMilliseconds:F3}ms");
             }
         }
 

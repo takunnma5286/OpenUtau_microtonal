@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>OpenUtau</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="module" src="./AppBundle/main.js"></script>
+    <style>
+        @font-face {
+            font-family: 'Noto Sans JP';
+            src: url('./AppBundle/Fonts/NotoSansJP-Regular.otf') format('opentype');
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #FAFAFA;
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+
+        #out {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #avalonia-splash {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: sans-serif;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="out">
+        <div id="avalonia-splash">
+            Loading OpenUtau...
+        </div>
+    </div>
+    <script>
+        const observer = new MutationObserver((mutations) => {
+            const out = document.getElementById('out');
+            if (out && (out.querySelector('.avalonia-container') || out.children.length > 1)) {
+                console.log("Splash: Content detected, removing splash.");
+                const splash = document.getElementById('avalonia-splash');
+                if (splash) splash.remove();
+                observer.disconnect();
+            }
+        });
+        observer.observe(document.getElementById('out'), { childList: true, subtree: true });
+
+        // Backup timeout
+        setTimeout(() => {
+            const splash = document.getElementById('avalonia-splash');
+            if (splash) {
+                console.log("Splash: Timeout reached, forcing removal.");
+                splash.remove();
+            }
+        }, 5000);
+    </script>
+</body>
+
+</html>

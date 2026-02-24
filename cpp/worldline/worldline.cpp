@@ -4,46 +4,50 @@
 #include <iterator>
 #include <vector>
 
-#include "world/cheaptrick.h"
-#include "world/codec.h"
-#include "world/d4c.h"
-#include "world/dio.h"
-#include "world/synthesis.h"
-#include "worldline/classic/resampler.h"
-#include "worldline/common/vec_utils.h"
-#include "worldline/f0/dio_estimator.h"
-#include "worldline/f0/dio_ss_estimator.h"
-#include "worldline/f0/f0_estimator.h"
-#include "worldline/f0/harvest_estimator.h"
-#include "worldline/f0/pyin_estimator.h"
-#include "worldline/model/effects.h"
+#include "../third_party/world/src/world/cheaptrick.h"
+#include "../third_party/world/src/world/codec.h"
+#include "../third_party/world/src/world/d4c.h"
+#include "../third_party/world/src/world/dio.h"
+#include "../third_party/world/src/world/synthesis.h"
+#include "classic/resampler.h"
+#include "common/vec_utils.h"
+#include "f0/dio_estimator.h"
+#include "f0/dio_ss_estimator.h"
+#include "f0/f0_estimator.h"
+#include "f0/harvest_estimator.h"
+#include "f0/pyin_estimator.h"
+#include "model/effects.h"
+#include "model/model.h"
 
-static double** to2d(double* const arr, int length, int width) {
-  double** arr2d = new double*[length];
+static double **to2d(double *const arr, int length, int width) {
+  double **arr2d = new double *[length];
   for (int i = 0; i < length; ++i) {
     arr2d[i] = arr + i * width;
   }
   return arr2d;
 }
 
-DLL_API int F0(float* samples, int length, int fs, double frame_period,
-               int method, double** f0) {
+DLL_API int F0(float *samples, int length, int fs, double frame_period,
+               int method, double **f0) {
   std::unique_ptr<worldline::F0Estimator> estimator;
   switch (method) {
-    case -1: {
-      int f0_length = GetSamplesForDIO(fs, length, frame_period);
-      *f0 = new double[f0_length];
-      return f0_length;
-    }
-    case 1:
-      estimator = std::make_unique<worldline::HarvestEstimator>();
-      break;
-    case 2:
-      estimator = std::make_unique<worldline::PyinEstimator>();
-      break;
-    default:
-      estimator = std::make_unique<worldline::DioEstimator>();
-      break;
+  case -1: {
+    int f0_length = GetSamplesForDIO(fs, length, frame_period);
+    *f0 = new double[f0_length];
+    return f0_length;
+  }
+  case 1:
+    estimator = std::unique_ptr<worldline::HarvestEstimator>(
+        new worldline::HarvestEstimator());
+    break;
+  case 2:
+    estimator = std::unique_ptr<worldline::PyinEstimator>(
+        new worldline::PyinEstimator());
+    break;
+  default:
+    estimator =
+        std::unique_ptr<worldline::DioEstimator>(new worldline::DioEstimator());
+    break;
   }
   std::vector<double> samples_vec(length, 0);
   std::copy(samples, samples + length, samples_vec.begin());
@@ -56,31 +60,31 @@ DLL_API int F0(float* samples, int length, int fs, double frame_period,
   return f0_length;
 }
 
-DLL_API int DecodeMgc(int f0_length, double* mgc, int mgc_size, int fft_size,
-                      int fs, double** spectrogram) {
+DLL_API int DecodeMgc(int f0_length, double *mgc, int mgc_size, int fft_size,
+                      int fs, double **spectrogram) {
   int sp_size = fft_size / 2 + 1;
-  double** mgc2d = to2d(mgc, f0_length, mgc_size);
+  double **mgc2d = to2d(mgc, f0_length, mgc_size);
   *spectrogram = new double[f0_length * sp_size];
-  double** sp2d = to2d(*spectrogram, f0_length, sp_size);
+  double **sp2d = to2d(*spectrogram, f0_length, sp_size);
   DecodeSpectralEnvelope(mgc2d, f0_length, fs, fft_size, mgc_size, sp2d);
   delete[] sp2d;
   return sp_size;
 }
 
-DLL_API int DecodeBap(int f0_length, double* bap, int fft_size, int fs,
-                      double** aperiodicity) {
+DLL_API int DecodeBap(int f0_length, double *bap, int fft_size, int fs,
+                      double **aperiodicity) {
   int bap_size = GetNumberOfAperiodicities(fs);
   int ap_size = fft_size / 2 + 1;
-  double** bap2d = to2d(bap, f0_length, bap_size);
+  double **bap2d = to2d(bap, f0_length, bap_size);
   *aperiodicity = new double[f0_length * ap_size];
-  double** ap2d = to2d(*aperiodicity, f0_length, ap_size);
+  double **ap2d = to2d(*aperiodicity, f0_length, ap_size);
   DecodeAperiodicity(bap2d, f0_length, fs, fft_size, ap2d);
   delete[] ap2d;
   return ap_size;
 }
 
-void InitAnalysisConfig(AnalysisConfig* config, int fs, int hop_size,
-                        int fft_size) {
+DLL_API void InitAnalysisConfig(AnalysisConfig *config, int fs, int hop_size,
+                                int fft_size) {
   config->fs = fs;
   config->hop_size = hop_size;
   config->fft_size = fft_size;
@@ -89,14 +93,15 @@ void InitAnalysisConfig(AnalysisConfig* config, int fs, int hop_size,
                      static_cast<double>(config->fs);
 }
 
-DLL_API void WorldAnalysis(const AnalysisConfig* config, float* samples,
-                           int num_samples, double** f0_out,
-                           double** sp_env_out, double** ap_out,
-                           int* num_frames) {
+DLL_API void WorldAnalysis(const AnalysisConfig *config, float *samples,
+                           int num_samples, double **f0_out,
+                           double **sp_env_out, double **ap_out,
+                           int *num_frames) {
   std::vector<double> samples_vec;
   samples_vec.reserve(num_samples);
   std::copy(samples, samples + num_samples, std::back_inserter(samples_vec));
-  auto f0_estimator = std::make_unique<worldline::PyinEstimator>();
+  auto f0_estimator =
+      std::unique_ptr<worldline::PyinEstimator>(new worldline::PyinEstimator());
   worldline::Model model(std::move(samples_vec), config->fs, config->frame_ms,
                          std::move(f0_estimator));
   model.BuildF0();
@@ -116,9 +121,9 @@ DLL_API void WorldAnalysis(const AnalysisConfig* config, float* samples,
   }
 }
 
-DLL_API void WorldAnalysisF0In(const AnalysisConfig* config, float* samples,
-                               int num_samples, double* f0_in, int num_frames,
-                               double* sp_env_out, double* ap_out) {
+DLL_API void WorldAnalysisF0In(const AnalysisConfig *config, float *samples,
+                               int num_samples, double *f0_in, int num_frames,
+                               double *sp_env_out, double *ap_out) {
   std::vector<double> samples_vec;
   samples_vec.reserve(num_samples);
   std::copy(samples, samples + num_samples, std::back_inserter(samples_vec));
@@ -129,8 +134,8 @@ DLL_API void WorldAnalysisF0In(const AnalysisConfig* config, float* samples,
   }
 
   int sp_size = config->fft_size / 2 + 1;
-  double** sp_env_2d = to2d(sp_env_out, num_frames, sp_size);
-  double** ap_2d = to2d(ap_out, num_frames, sp_size);
+  double **sp_env_2d = to2d(sp_env_out, num_frames, sp_size);
+  double **ap_2d = to2d(ap_out, num_frames, sp_size);
 
   CheapTrickOption ct_option;
   InitializeCheapTrickOption(config->fs, &ct_option);
@@ -149,19 +154,19 @@ DLL_API void WorldAnalysisF0In(const AnalysisConfig* config, float* samples,
   delete[] ap_2d;
 }
 
-DLL_API int WorldSynthesis(double* const f0, int f0_length,
-                           double* const mgc_or_sp, bool is_mgc, int mgc_size,
-                           double* const bap_or_ap, bool is_bap, int fft_size,
-                           double frame_period, int fs, double** y,
-                           double* const gender, double* const tension,
-                           double* const breathiness, double* const voicing) {
+DLL_API int WorldSynthesis(double *const f0, int f0_length,
+                           double *const mgc_or_sp, bool is_mgc, int mgc_size,
+                           double *const bap_or_ap, bool is_bap, int fft_size,
+                           double frame_period, int fs, double **y,
+                           double *const gender, double *const tension,
+                           double *const breathiness, double *const voicing) {
   int bap_size = GetNumberOfAperiodicities(fs);
   int sp_size = fft_size / 2 + 1;
 
-  double** sp = nullptr;
+  double **sp = nullptr;
   if (is_mgc) {
-    double** mgc2d = to2d(mgc_or_sp, f0_length, mgc_size);
-    sp = new double*[f0_length];
+    double **mgc2d = to2d(mgc_or_sp, f0_length, mgc_size);
+    sp = new double *[f0_length];
     for (int i = 0; i < f0_length; ++i) {
       sp[i] = new double[sp_size];
     }
@@ -171,10 +176,10 @@ DLL_API int WorldSynthesis(double* const f0, int f0_length,
     sp = to2d(mgc_or_sp, f0_length, sp_size);
   }
 
-  double** ap = nullptr;
+  double **ap = nullptr;
   if (is_bap) {
-    double** bap2d = to2d(bap_or_ap, f0_length, bap_size);
-    ap = new double*[f0_length];
+    double **bap2d = to2d(bap_or_ap, f0_length, bap_size);
+    ap = new double *[f0_length];
     for (int i = 0; i < f0_length; ++i) {
       ap[i] = new double[sp_size];
     }
@@ -238,22 +243,23 @@ DLL_API int WorldSynthesis(double* const f0, int f0_length,
   return y_length;
 }
 
-DLL_API int Resample(const SynthRequest* request, float** y) {
-  auto resampler = std::make_unique<worldline::Resampler>(*request);
+DLL_API int Resample(const SynthRequest *request, float **y) {
+  auto resampler =
+      std::unique_ptr<worldline::Resampler>(new worldline::Resampler(*request));
   std::vector<double> out = resampler->Resample();
   *y = new float[out.size()];
   std::copy(out.begin(), out.end(), *y);
   return out.size();
 }
 
-DLL_API PhraseSynth* PhraseSynthNew() { return new PhraseSynth(); }
+DLL_API PhraseSynth *PhraseSynthNew() { return new PhraseSynth(); }
 
-DLL_API void PhraseSynthDelete(PhraseSynth* phrase_synth) {
+DLL_API void PhraseSynthDelete(PhraseSynth *phrase_synth) {
   delete phrase_synth;
 }
 
-DLL_API void PhraseSynthAddRequest(PhraseSynth* phrase_synth,
-                                   const SynthRequest* request, double pos_ms,
+DLL_API void PhraseSynthAddRequest(PhraseSynth *phrase_synth,
+                                   const SynthRequest *request, double pos_ms,
                                    double skip_ms, double length_ms,
                                    double fade_in_ms, double fade_out_ms,
                                    worldline::LogCallback logCallback) {
@@ -261,16 +267,16 @@ DLL_API void PhraseSynthAddRequest(PhraseSynth* phrase_synth,
                            fade_out_ms, logCallback);
 }
 
-DLL_API void PhraseSynthSetCurves(PhraseSynth* phrase_synth, double* f0,
-                                  double* gender, double* tension,
-                                  double* breathiness, double* voicing,
+DLL_API void PhraseSynthSetCurves(PhraseSynth *phrase_synth, double *f0,
+                                  double *gender, double *tension,
+                                  double *breathiness, double *voicing,
                                   int length,
                                   worldline::LogCallback logCallback) {
   phrase_synth->SetCurves(f0, gender, tension, breathiness, voicing, length,
                           logCallback);
 }
 
-DLL_API int PhraseSynthSynth(PhraseSynth* phrase_synth, float** y,
+DLL_API int PhraseSynthSynth(PhraseSynth *phrase_synth, float **y,
                              worldline::LogCallback logCallback) {
   std::vector<double> samples = phrase_synth->Synth(logCallback);
   int yLength = samples.size();
@@ -278,3 +284,5 @@ DLL_API int PhraseSynthSynth(PhraseSynth* phrase_synth, float** y,
   std::copy(samples.begin(), samples.end(), *y);
   return yLength;
 }
+
+DLL_API int WorldlineTest() { return 12345; }

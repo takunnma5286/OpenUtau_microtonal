@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -58,12 +58,15 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public int LockStartTime { get; set; }
         [Reactive] public int PlaybackAutoScroll { get; set; }
         [Reactive] public double PlayPosMarkerMargin { get; set; }
+        public List<int> PlaybackBufferSizes { get; } = new List<int> { 1024, 2048, 4096, 8192, 16384, 32768, 65536 };
+        [Reactive] public int PlaybackBufferSize { get; set; }
 
         // Paths
         public string SingerPath => PathManager.Inst.SingersPath;
         public string AdditionalSingersPath => !string.IsNullOrWhiteSpace(PathManager.Inst.AdditionalSingersPath) ? PathManager.Inst.AdditionalSingersPath : "(None)";
         [Reactive] public bool InstallToAdditionalSingersPath { get; set; }
         [Reactive] public bool LoadDeepFolders { get; set; }
+        [Reactive] public string? ImportLog { get; set; }
 
         // Editing
         public List<LyricsHelperOption> LyricsHelpers { get; } =
@@ -90,7 +93,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public string OnnxRunner { get; set; }
         public List<GpuInfo> OnnxGpuOptions { get; set; }
         [Reactive] public GpuInfo OnnxGpu { get; set; }
-      
+
         // Appearance
         [Reactive] public int Theme { get; set; }
         [Reactive] public string CustomName { get; set; } = Colors.CustomTheme.Default.Name;
@@ -140,7 +143,11 @@ namespace OpenUtau.App.ViewModels {
             LockStartTime = Preferences.Default.LockStartTime;
             InstallToAdditionalSingersPath = Preferences.Default.InstallToAdditionalSingersPath;
             LoadDeepFolders = Preferences.Default.LoadDeepFolderSinger;
-            ToolsManager.Inst.Initialize();
+            try {
+                ToolsManager.Inst.Initialize();
+            } catch (Exception e) {
+                Log.Error(e, "Failed to initialize ToolsManager");
+            }
             var pattern = new Regex(@"Strings\.([\w-]+)\.axaml");
             Languages = App.GetLanguages().Keys
                 .Select(lang => CultureInfo.GetCultureInfo(lang))
@@ -211,6 +218,12 @@ namespace OpenUtau.App.ViewModels {
             this.WhenAnyValue(vm => vm.PlayPosMarkerMargin)
                 .Subscribe(playPosMarkerMargin => {
                     Preferences.Default.PlayPosMarkerMargin = playPosMarkerMargin;
+                    Preferences.Save();
+                });
+            PlaybackBufferSize = Preferences.Default.PlaybackBufferSize;
+            this.WhenAnyValue(vm => vm.PlaybackBufferSize)
+                .Subscribe(size => {
+                    Preferences.Default.PlaybackBufferSize = size;
                     Preferences.Save();
                 });
             this.WhenAnyValue(vm => vm.LockStartTime)

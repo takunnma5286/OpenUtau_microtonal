@@ -1,8 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.JavaScript;
+using System.Threading.Tasks;
 using NAudio.Wave;
 using NumSharp;
 using OpenUtau.Classic;
@@ -16,32 +18,101 @@ namespace OpenUtau.Core.Render {
 
     public class CutOffBeforeOffsetError : SynthRequestError { }
 
-    public static class Worldline {
-        [DllImport("worldline", CallingConvention = CallingConvention.Cdecl)]
-        static extern int F0(
-            float[] samples, int length, int fs, double framePeriod, int method, ref IntPtr f0);
+    public static partial class Worldline {
+        // JavaScript Interop Bridge initialization
+        [JSImport("initWorldline", "worldline_bridge")]
+        public static partial Task InitWorldlineAsync();
 
+        [JSImport("WorldlineTest", "worldline_bridge")]
+        public static partial int WorldlineTest();
+
+
+#if !BROWSER
+        [LibraryImport("worldline", EntryPoint = "F0")]
+        private static partial int F0(
+            float[] samples, int length, int fs, double framePeriod,
+            int method, ref IntPtr f0);
+#endif
+
+        [JSImport("F0ViaGlobal", "worldline_bridge")]
+        private static partial void F0_JS(int fs, double framePeriod, int method);
         public static double[] F0(float[] samples, int fs, double framePeriod, int method) {
-            try {
-                unsafe {
-                    IntPtr buffer = IntPtr.Zero;
-                    int size = F0(samples, samples.Length, fs, framePeriod, method, ref buffer);
-                    var data = new double[size];
-                    Marshal.Copy(buffer, data, 0, size);
-                    return data;
+            // method=-1 means skip F0 estimation (FRQ file exists)
+            if (method == -1) {
+                Log.Information("[F0] Method=-1, skipping F0 estimation (FRQ file will be used)");
+                int numFrames = (int)Math.Ceiling(samples.Length / (double)fs * 1000.0 / framePeriod);
+                return new double[numFrames]; // Return zeros, will be filled from FRQ
+            }
+
+            if (OperatingSystem.IsBrowser()) {
+                try {
+                    Log.Information($"[F0] Called with {samples.Length} samples, fs={fs}, framePeriod={framePeriod}, method={method}");
+                    var globalThis = JSHost.GlobalThis;
+
+                    // Pass array via JSON
+                    Log.Information("[F0] Serializing samples to JSON...");
+                    var json = System.Text.Json.JsonSerializer.Serialize(samples);
+                    Log.Information($"[F0] JSON length: {json.Length}");
+                    globalThis.SetProperty("_worldlineInputJson", json);
+                    Log.Information("[F0] Set _worldlineInputJson property");
+
+                    // Call F0
+                    Log.Information("[F0] Calling F0_JS...");
+                    F0_JS(fs, framePeriod, method);
+                    Log.Information("[F0] F0_JS returned");
+
+                    // Read result
+                    Log.Information("[F0] Reading result from _worldlineOutput...");
+                    using (var resultJS = globalThis.GetPropertyAsJSObject("_worldlineOutput")) {
+                        if (resultJS == null) {
+                            Log.Error("[F0] ❌ Result is null!");
+                            throw new InvalidOperationException("F0 result not found");
+                        }
+
+                        var length = (int)resultJS.GetPropertyAsInt32("length");
+                        Log.Information($"[F0] Result array length: {length}");
+                        var result = new double[length];
+                        for (int i = 0; i < length; i++) {
+                            result[i] = (double)resultJS.GetPropertyAsDouble(i.ToString());
+                        }
+                        Log.Information($"[F0] ✅ Returning {result.Length} values");
+                        return result;
+                    }
+                } catch (Exception e) {
+                    Log.Error(e, "Failed to estimate F0 (WASM).");
+                    return null;
                 }
+            }
+#if !BROWSER
+            try {
+                IntPtr buffer = IntPtr.Zero;
+                int length = F0(samples, samples.Length, fs, framePeriod, method, ref buffer);
+                var data = new double[length];
+                Marshal.Copy(buffer, data, 0, length);
+                Marshal.FreeCoTaskMem(buffer);
+                return data;
             } catch (Exception e) {
-                Log.Error(e, "Failed to calculate f0.");
+                Log.Error(e, "Failed to estimate F0.");
                 return null;
             }
+#else
+            throw new PlatformNotSupportedException("F0 is not supported on this platform.");
+#endif
         }
 
-        [DllImport("worldline", CallingConvention = CallingConvention.Cdecl)]
-        static extern int DecodeMgc(
+
+#if !BROWSER
+        [LibraryImport("worldline", EntryPoint = "DecodeMgc")]
+        private static partial int DecodeMgc(
             int f0Length, double[] mgc, int mgcSize,
             int fftSize, int fs, ref IntPtr spectrogram);
+#endif
 
         public static double[,] DecodeMgc(int f0Length, double[] mgc, int fftSize, int fs) {
+            if (OperatingSystem.IsBrowser()) {
+                throw new NotImplementedException("DecodeMgc via JSImport not yet implemented. Need to use JSObject for arrays.");
+            }
+#if !BROWSER
             try {
                 int mgcSize = mgc.Length / f0Length;
                 unsafe {
@@ -58,14 +129,23 @@ namespace OpenUtau.Core.Render {
                 Log.Error(e, "Failed to decode.");
                 return null;
             }
+#else
+            throw new PlatformNotSupportedException("DecodeMgc is not supported on this platform.");
+#endif
         }
 
-        [DllImport("worldline", CallingConvention = CallingConvention.Cdecl)]
-        static extern int DecodeBap(
+#if !BROWSER
+        [LibraryImport("worldline", EntryPoint = "DecodeBap")]
+        private static partial int DecodeBap(
             int f0Length, double[] bap,
             int fftSize, int fs, ref IntPtr aperiodicity);
+#endif
 
         public static double[,] DecodeBap(int f0Length, double[] bap, int fftSize, int fs) {
+            if (OperatingSystem.IsBrowser()) {
+                throw new NotImplementedException("DecodeBap via JSImport not yet implemented. Need to use JSObject for arrays.");
+            }
+#if !BROWSER
             try {
                 unsafe {
                     IntPtr buffer = IntPtr.Zero;
@@ -81,6 +161,9 @@ namespace OpenUtau.Core.Render {
                 Log.Error(e, "Failed to decode.");
                 return null;
             }
+#else
+            throw new PlatformNotSupportedException("DecodeBap is not supported on this platform.");
+#endif
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -92,71 +175,303 @@ namespace OpenUtau.Core.Render {
             public double frame_ms;
         };
 
-        [DllImport("worldline", CallingConvention = CallingConvention.Cdecl)]
-        static extern void InitAnalysisConfig(ref AnalysisConfig config,
-            int fs, int hop_size, int fft_size);
+
+#if !BROWSER
+        [LibraryImport("worldline", EntryPoint = "InitAnalysisConfig")]
+        private static partial void InitAnalysisConfig(ref AnalysisConfig config,
+             int fs, int hop_size, int fft_size);
+#endif
+
+        [JSImport("InitAnalysisConfig", "worldline_bridge")]
+        private static partial JSObject InitAnalysisConfig_JS(int fs, int hopSize, int fftSize);
+
+
+        public static AnalysisConfig InitAnalysisConfig(int fs, double frame_ms) {
+            if (OperatingSystem.IsBrowser()) {
+                using var configJS = InitAnalysisConfig_JS(fs, 0, 0);
+                var config = new AnalysisConfig {
+                    fs = (int)configJS.GetPropertyAsInt32("fs"),
+                    hop_size = (int)configJS.GetPropertyAsInt32("hop_size"),
+                    fft_size = (int)configJS.GetPropertyAsInt32("fft_size"),
+                    f0_floor = (float)configJS.GetPropertyAsDouble("f0_floor"),
+                    frame_ms = configJS.GetPropertyAsDouble("frame_ms")
+                };
+                config.frame_ms = frame_ms;
+                return config;
+            }
+#if !BROWSER
+            var nativeConfig = new AnalysisConfig();
+            InitAnalysisConfig(ref nativeConfig, fs, 0, 0);
+            nativeConfig.frame_ms = frame_ms;
+            return nativeConfig;
+#else
+            throw new PlatformNotSupportedException("InitAnalysisConfig is not supported on this platform.");
+#endif
+        }
 
         public static AnalysisConfig InitAnalysisConfig(int fs, int hop_size, int fft_size) {
+            if (OperatingSystem.IsBrowser()) {
+                using var configJS = InitAnalysisConfig_JS(fs, hop_size, fft_size);
+                return new AnalysisConfig {
+                    fs = (int)configJS.GetPropertyAsInt32("fs"),
+                    hop_size = (int)configJS.GetPropertyAsInt32("hop_size"),
+                    fft_size = (int)configJS.GetPropertyAsInt32("fft_size"),
+                    f0_floor = (float)configJS.GetPropertyAsDouble("f0_floor"),
+                    frame_ms = configJS.GetPropertyAsDouble("frame_ms")
+                };
+            }
+#if !BROWSER
             AnalysisConfig config = new AnalysisConfig();
             InitAnalysisConfig(ref config, fs, hop_size, fft_size);
             return config;
+#else
+            throw new PlatformNotSupportedException("InitAnalysisConfig is not supported on this platform.");
+#endif
         }
 
-        [DllImport("worldline", CallingConvention = CallingConvention.Cdecl)]
-        static extern unsafe void WorldAnalysis(
+#if BROWSER
+        // WorldAnalysis - Not implemented for WASM
+        public static unsafe void WorldAnalysis(
+            float[] samples, int fs, double frame_ms,
+            out double[] f0, out double[,] sp_env, out double[,] ap) {
+            throw new NotImplementedException("WorldAnalysis via JSImport not yet implemented.");
+        }
+#else
+        [LibraryImport("worldline", EntryPoint = "WorldAnalysis")]
+        private static unsafe partial void WorldAnalysis(
             ref AnalysisConfig config, float[] samples, int num_samples,
             double** f0_out, double** sp_env_out, double** ap_out,
-            ref int num_frames);
-        public static unsafe void WorldAnalysis(ref AnalysisConfig config, float[] samples,
-            out NDArray f0Out, out NDArray spEnv, out NDArray ap, out int num_frames) {
-            double* f0Ptr = null;
-            double* spEnvPtr = null;
-            double* apPtr = null;
-            num_frames = 0;
+            int* f0_length_out);
+        public static unsafe void WorldAnalysis(
+            float[] samples, int fs, double frame_ms,
+            out double[] f0, out double[,] sp_env, out double[,] ap) {
+            var config = InitAnalysisConfig(fs, frame_ms);
+            unsafe {
+                double* f0Ptr, spEnvPtr, apPtr;
+                int length;
+                WorldAnalysis(ref config, samples, samples.Length,
+                    &f0Ptr, &spEnvPtr, &apPtr, &length);
+                f0 = new double[length];
+                sp_env = new double[length, config.fft_size / 2 + 1];
+                ap = new double[length, config.fft_size / 2 + 1];
+                Marshal.Copy(new IntPtr(f0Ptr), f0, 0, length);
+                Copy2D(new IntPtr(spEnvPtr), sp_env, length, config.fft_size / 2 + 1);
+                Copy2D(new IntPtr(apPtr), ap, length, config.fft_size / 2 + 1);
+                Marshal.FreeCoTaskMem(new IntPtr(f0Ptr));
+                Marshal.FreeCoTaskMem(new IntPtr(spEnvPtr));
+                Marshal.FreeCoTaskMem(new IntPtr(apPtr));
+            }
+        }
+#endif
 
-            WorldAnalysis(ref config, samples, samples.Length, &f0Ptr, &spEnvPtr, &apPtr, ref num_frames);
-
-            int spSize = config.fft_size / 2 + 1;
-
-            f0Out = np.ndarray(new Shape(num_frames), typeof(double));
-            spEnv = np.ndarray(new Shape(num_frames, spSize), typeof(double));
-            ap = np.ndarray(new Shape(num_frames, spSize), typeof(double));
-
-            Buffer.MemoryCopy(f0Ptr, f0Out.Data<double>().Address,
-                num_frames * sizeof(double), num_frames * sizeof(double));
-            Buffer.MemoryCopy(spEnvPtr, spEnv.Data<double>().Address,
-                num_frames * spSize * sizeof(double), num_frames * spSize * sizeof(double));
-            Buffer.MemoryCopy(apPtr, ap.Data<double>().Address,
-                num_frames * spSize * sizeof(double), num_frames * spSize * sizeof(double));
-
-            Marshal.FreeCoTaskMem(new IntPtr(f0Ptr));
-            Marshal.FreeCoTaskMem(new IntPtr(spEnvPtr));
-            Marshal.FreeCoTaskMem(new IntPtr(apPtr));
+        static unsafe void Copy2D(IntPtr ptr, double[,] data, int rows, int cols) {
+            var span = new Span<double>((void*)ptr, rows * cols);
+            for (int i = 0; i < rows; ++i) {
+                for (int j = 0; j < cols; ++j) {
+                    data[i, j] = span[i * cols + j];
+                }
+            }
         }
 
-        [DllImport("worldline", CallingConvention = CallingConvention.Cdecl)]
-        static extern unsafe void WorldAnalysisF0In(
+
+        [JSImport("WorldAnalysisF0InViaGlobal", "worldline_bridge")]
+        private static partial void WorldAnalysisF0In_JS(int fs, int hopSize, int fftSize, float f0Floor, double frameMs);
+
+#if !BROWSER
+        [LibraryImport("worldline", EntryPoint = "WorldAnalysisF0In")]
+        private static unsafe partial void WorldAnalysisF0In_Native(
             ref AnalysisConfig config, float[] samples, int num_samples,
             double[] f0_in, int num_frames, double* sp_env_out, double* ap_out);
+#endif
+
         public static unsafe void WorldAnalysisF0In(ref AnalysisConfig config, float[] samples,
             double[] f0In, out NDArray spEnv, out NDArray ap) {
-            int numFrames = f0In.Length;
-            int spSize = config.fft_size / 2 + 1;
-            spEnv = np.ndarray(new Shape(numFrames, spSize), typeof(double));
-            ap = np.ndarray(new Shape(numFrames, spSize), typeof(double));
-            WorldAnalysisF0In(ref config, samples, samples.Length, f0In, numFrames,
-                spEnv.Data<double>().Address, ap.Data<double>().Address);
+            if (OperatingSystem.IsBrowser()) {
+                try {
+                    var totalSw = System.Diagnostics.Stopwatch.StartNew();
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    Log.Information($"[WorldAnalysisF0In] Called with {samples.Length} samples, {f0In.Length} frames");
+
+                    int numFrames = f0In.Length;
+                    int spSize = config.fft_size / 2 + 1;
+
+                    var globalThis = JSHost.GlobalThis;
+
+                    // Prepare input using Base64 encoding for efficient binary transfer
+                    sw.Restart();
+                    var samplesBytes = new byte[samples.Length * sizeof(float)];
+                    Buffer.BlockCopy(samples, 0, samplesBytes, 0, samplesBytes.Length);
+                    var f0InBytes = new byte[f0In.Length * sizeof(double)];
+                    Buffer.BlockCopy(f0In, 0, f0InBytes, 0, f0InBytes.Length);
+                    Log.Information($"[WorldAnalysisF0In] ⏱️ Buffer.BlockCopy: {sw.ElapsedMilliseconds}ms");
+
+                    sw.Restart();
+                    var inputData = new {
+                        samplesBase64 = Convert.ToBase64String(samplesBytes),
+                        f0InBase64 = Convert.ToBase64String(f0InBytes),
+                        samplesLength = samples.Length,
+                        f0InLength = f0In.Length
+                    };
+                    var inputJson = System.Text.Json.JsonSerializer.Serialize(inputData);
+                    Log.Information($"[WorldAnalysisF0In] ⏱️ Base64+Serialize: {sw.ElapsedMilliseconds}ms, JSON length: {inputJson.Length}");
+
+                    sw.Restart();
+                    globalThis.SetProperty("_worldlineInput", inputJson);
+                    Log.Information($"[WorldAnalysisF0In] ⏱️ SetProperty: {sw.ElapsedMilliseconds}ms");
+
+                    // Call JavaScript function
+                    sw.Restart();
+                    WorldAnalysisF0In_JS(config.fs, config.hop_size, config.fft_size, config.f0_floor, config.frame_ms);
+                    Log.Information($"[WorldAnalysisF0In] ⏱️ JS Call: {sw.ElapsedMilliseconds}ms");
+
+                    // Read output JSON
+                    sw.Restart();
+                    var outputJson = globalThis.GetPropertyAsString("_worldlineOutput");
+                    if (string.IsNullOrEmpty(outputJson)) {
+                        throw new InvalidOperationException("WorldAnalysisF0In output not found");
+                    }
+                    Log.Information($"[WorldAnalysisF0In] ⏱️ GetProperty: {sw.ElapsedMilliseconds}ms, JSON length: {outputJson.Length}");
+
+                    // Parse output - use Base64 for efficient binary transfer
+                    sw.Restart();
+                    using var outputDoc = System.Text.Json.JsonDocument.Parse(outputJson);
+                    var root = outputDoc.RootElement;
+
+                    var resultNumFrames = root.GetProperty("numFrames").GetInt32();
+                    var resultSpSize = root.GetProperty("spSize").GetInt32();
+
+                    // Decode Base64 to byte arrays, then convert to double arrays
+                    var spEnvBase64 = root.GetProperty("spEnvBase64").GetString()
+                        ?? throw new InvalidOperationException("spEnvBase64 is null");
+                    var apBase64 = root.GetProperty("apBase64").GetString()
+                        ?? throw new InvalidOperationException("apBase64 is null");
+                    Log.Information($"[WorldAnalysisF0In] ⏱️ JSON Parse: {sw.ElapsedMilliseconds}ms");
+
+                    sw.Restart();
+                    var spEnvBytes = Convert.FromBase64String(spEnvBase64);
+                    var apBytes = Convert.FromBase64String(apBase64);
+                    Log.Information($"[WorldAnalysisF0In] ⏱️ Base64 Decode: {sw.ElapsedMilliseconds}ms");
+
+                    // Convert bytes to double arrays
+                    sw.Restart();
+                    int arrayLength = resultNumFrames * resultSpSize;
+                    var spEnvArray = new double[arrayLength];
+                    var apArray = new double[arrayLength];
+                    Buffer.BlockCopy(spEnvBytes, 0, spEnvArray, 0, spEnvBytes.Length);
+                    Buffer.BlockCopy(apBytes, 0, apArray, 0, apBytes.Length);
+
+                    // Create NDArrays and copy data efficiently
+                    spEnv = np.ndarray(new Shape(resultNumFrames, resultSpSize), typeof(double));
+                    ap = np.ndarray(new Shape(resultNumFrames, resultSpSize), typeof(double));
+
+                    // Use direct memory copy via NDArray's underlying storage
+                    unsafe {
+                        var spEnvSpan = new Span<double>(spEnv.Data<double>().Address, arrayLength);
+                        var apSpan = new Span<double>(ap.Data<double>().Address, arrayLength);
+                        spEnvArray.AsSpan().CopyTo(spEnvSpan);
+                        apArray.AsSpan().CopyTo(apSpan);
+                    }
+                    Log.Information($"[WorldAnalysisF0In] ⏱️ NDArray Copy: {sw.ElapsedMilliseconds}ms");
+
+                    totalSw.Stop();
+                    Log.Information($"[WorldAnalysisF0In] ✅ Complete - Total: {totalSw.ElapsedMilliseconds}ms");
+                } catch (Exception e) {
+                    Log.Error(e, "Failed to call WorldAnalysisF0In (WASM).");
+                    throw;
+                }
+            } else {
+#if !BROWSER
+                int numFrames = f0In.Length;
+                int spSize = config.fft_size / 2 + 1;
+                spEnv = np.ndarray(new Shape(numFrames, spSize), typeof(double));
+                ap = np.ndarray(new Shape(numFrames, spSize), typeof(double));
+                Log.Information($"[Worldline] Calling native WorldAnalysisF0In with {numFrames} frames");
+                WorldAnalysisF0In_Native(ref config, samples, samples.Length, f0In, numFrames,
+                    spEnv.Data<double>().Address, ap.Data<double>().Address);
+#else
+                throw new PlatformNotSupportedException("WorldAnalysisF0In is not supported on this platform.");
+#endif
+            }
         }
 
-        [DllImport("worldline", CallingConvention = CallingConvention.Cdecl)]
-        static extern int WorldSynthesis(
-            double[] f0, int f0Length,
-            double[,] mgcOrSp, bool isMgc, int mgcSize,
-            double[,] bapOrAp, bool isBap, int fftSize,
-            double framePeriod, int fs, ref IntPtr y,
-            double[] gender, double[] tension,
-            double[] breathiness, double[] voicing);
 
+        [JSImport("WorldSynthesisViaGlobal", "worldline_bridge")]
+        private static partial void WorldSynthesis_JS(bool isMgc, int mgcSize, bool isBap, int fftSize, double framePeriod, int fs);
+
+        public static double[] WorldSynthesis(
+            double[] f0,
+            double[] mgcOrSp, bool isMgc, int mgcSize,
+            double[] bapOrAp, bool isBap, int fftSize,
+            double framePeriod, int fs,
+            double[] gender, double[] tension,
+            double[] breathiness, double[] voicing) {
+            if (OperatingSystem.IsBrowser()) {
+                try {
+                    Log.Information($"[WorldSynthesis] Called with f0.Length={f0.Length}, mgcOrSp.Length={mgcOrSp.Length}");
+
+                    var globalThis = JSHost.GlobalThis;
+
+                    // Prepare input JSON
+                    var inputData = new {
+                        f0 = f0,
+                        mgcOrSp = mgcOrSp,
+                        bapOrAp = bapOrAp,
+                        gender = gender,
+                        tension = tension,
+                        breathiness = breathiness,
+                        voicing = voicing
+                    };
+                    var inputJson = System.Text.Json.JsonSerializer.Serialize(inputData);
+                    globalThis.SetProperty("_worldlineInput", inputJson);
+                    Log.Information($"[WorldSynthesis] Set input JSON, length: {inputJson.Length}");
+
+                    // Call JavaScript function
+                    Log.Information("[WorldSynthesis] Calling WorldSynthesis_JS...");
+                    WorldSynthesis_JS(isMgc, mgcSize, isBap, fftSize, framePeriod, fs);
+                    Log.Information("[WorldSynthesis] WorldSynthesis_JS returned");
+
+                    // Read output JSON
+                    var outputJson = globalThis.GetPropertyAsString("_worldlineOutput");
+                    if (string.IsNullOrEmpty(outputJson)) {
+                        throw new InvalidOperationException("WorldSynthesis output not found");
+                    }
+
+                    Log.Information($"[WorldSynthesis] Got output JSON, length: {outputJson.Length}");
+
+                    // Parse output
+                    var result = System.Text.Json.JsonSerializer.Deserialize<double[]>(outputJson);
+                    if (result == null) {
+                        throw new InvalidOperationException("Failed to deserialize WorldSynthesis output");
+                    }
+
+                    Log.Information($"[WorldSynthesis] ✅ Complete, result.Length={result.Length}");
+                    return result;
+                } catch (Exception e) {
+                    Log.Error(e, "Failed to call WorldSynthesis (WASM).");
+                    throw;
+                }
+            } else {
+#if !BROWSER
+                unsafe {
+                    IntPtr buffer = IntPtr.Zero;
+                    int size = WorldSynthesis_Flat(
+                        f0, f0.Length,
+                        mgcOrSp, isMgc, mgcSize,
+                        bapOrAp, isBap, fftSize,
+                        framePeriod, fs, ref buffer,
+                        gender, tension, breathiness, voicing);
+                    var data = new double[size];
+                    Marshal.Copy(buffer, data, 0, size);
+                    Marshal.FreeCoTaskMem(buffer);
+                    return data;
+                }
+#else
+                throw new PlatformNotSupportedException("WorldSynthesis is not supported on this platform.");
+#endif
+            }
+        }
+
+        // 2D array overload - flattens and calls 1D version
         public static double[] WorldSynthesis(
             double[] f0,
             double[,] mgcOrSp, bool isMgc, int mgcSize,
@@ -164,51 +479,36 @@ namespace OpenUtau.Core.Render {
             double framePeriod, int fs,
             double[] gender, double[] tension,
             double[] breathiness, double[] voicing) {
-            unsafe {
-                IntPtr buffer = IntPtr.Zero;
-                int size = WorldSynthesis(
-                    f0, f0.Length,
-                    mgcOrSp, isMgc, mgcSize,
-                    bapOrAp, isBap, fftSize,
-                    framePeriod, fs, ref buffer,
-                    gender, tension, breathiness, voicing);
-                var data = new double[size];
-                Marshal.Copy(buffer, data, 0, size);
-                Marshal.FreeCoTaskMem(buffer);
-                return data;
-            }
+            // Flatten 2D arrays to 1D
+            int f0Length = f0.Length;
+            double[] mgcOrSpFlat = new double[f0Length * mgcOrSp.GetLength(1)];
+            double[] bapOrApFlat = new double[f0Length * bapOrAp.GetLength(1)];
+
+            Buffer.BlockCopy(mgcOrSp, 0, mgcOrSpFlat, 0, mgcOrSpFlat.Length * sizeof(double));
+            Buffer.BlockCopy(bapOrAp, 0, bapOrApFlat, 0, bapOrApFlat.Length * sizeof(double));
+
+            return WorldSynthesis(
+                f0,
+                mgcOrSpFlat, isMgc, mgcSize,
+                bapOrApFlat, isBap, fftSize,
+                framePeriod, fs,
+                gender, tension, breathiness, voicing);
         }
 
-        [DllImport("worldline", CallingConvention = CallingConvention.Cdecl)]
-        static extern int WorldSynthesis(
+
+#if !BROWSER
+
+        [LibraryImport("worldline", EntryPoint = "WorldSynthesis")]
+        private static partial int WorldSynthesis_Flat(
             double[] f0, int f0Length,
-            double[] mgcOrSp, bool isMgc, int mgcSize,
-            double[] bapOrAp, bool isBap, int fftSize,
+            double[] mgcOrSp, [MarshalAs(UnmanagedType.I1)] bool isMgc, int mgcSize,
+            double[] bapOrAp, [MarshalAs(UnmanagedType.I1)] bool isBap, int fftSize,
             double framePeriod, int fs, ref IntPtr y,
             double[] gender, double[] tension,
             double[] breathiness, double[] voicing);
 
-        public static double[] WorldSynthesis(
-            double[] f0,
-            double[] mgcOrSp, bool isMgc, int mgcSize,
-            double[] bapOrAp, bool isBap, int fftSize,
-            double framePeriod, int fs,
-            double[] gender, double[] tension,
-            double[] breathiness, double[] voicing) {
-            unsafe {
-                IntPtr buffer = IntPtr.Zero;
-                int size = WorldSynthesis(
-                    f0, f0.Length,
-                    mgcOrSp, isMgc, mgcSize,
-                    bapOrAp, isBap, fftSize,
-                    framePeriod, fs, ref buffer,
-                    gender, tension, breathiness, voicing);
-                var data = new double[size];
-                Marshal.Copy(buffer, data, 0, size);
-                Marshal.FreeCoTaskMem(buffer);
-                return data;
-            }
-        }
+#endif
+
 
         [StructLayout(LayoutKind.Sequential)]
         struct SynthRequest {
@@ -244,6 +544,7 @@ namespace OpenUtau.Core.Render {
             public SynthRequestWrapper(ResamplerItem item) {
                 int fs;
                 double[] sample;
+                Log.Information($"[SynthRequestWrapper] Opening wave file: {item.inputFile}");
                 using (var waveStream = Wave.OpenFile(item.inputFile)) {
                     fs = waveStream.WaveFormat.SampleRate;
                     sample = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0))
@@ -349,52 +650,47 @@ namespace OpenUtau.Core.Render {
             }
         }
 
-        [DllImport("worldline")]
-        static extern int Resample(IntPtr request, ref IntPtr y);
+        // TODO: Implement via JSImport
+        static int Resample(IntPtr request, ref IntPtr y) {
+            throw new NotImplementedException("Resample via JSImport not yet implemented");
+        }
 
         public static float[] Resample(ResamplerItem item) {
-            var requestWrapper = new SynthRequestWrapper(item);
-            SynthRequest request = requestWrapper.request;
-            try {
-                unsafe {
-                    IntPtr buffer = IntPtr.Zero;
-                    int size = Resample(new IntPtr(&request), ref buffer);
-                    var data = new float[size];
-                    Marshal.Copy(buffer, data, 0, size);
-                    Marshal.FreeCoTaskMem(buffer);
-                    return data;
-                }
-            } finally {
-                requestWrapper.Dispose();
-            }
+            throw new NotImplementedException("Resample via JSImport not yet implemented");
         }
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         delegate void LogCallback(string log);
 
-        [DllImport("worldline")]
-        static extern IntPtr PhraseSynthNew();
+        // TODO: Implement via JSImport
+        static IntPtr PhraseSynthNew() {
+            throw new NotImplementedException("PhraseSynthNew via JSImport not yet implemented");
+        }
 
-        [DllImport("worldline")]
-        static extern void PhraseSynthDelete(IntPtr phrase_synth);
+        static void PhraseSynthDelete(IntPtr phrase_synth) {
+            throw new NotImplementedException("PhraseSynthDelete via JSImport not yet implemented");
+        }
 
-        [DllImport("worldline")]
-        static extern void PhraseSynthAddRequest(
+        static void PhraseSynthAddRequest(
             IntPtr phrase_synth, IntPtr request,
             double posMs, double skipMs, double lengthMs,
-            double fadeInMs, double fadeOutMs, LogCallback logCallback);
+            double fadeInMs, double fadeOutMs, LogCallback logCallback) {
+            throw new NotImplementedException("PhraseSynthAddRequest via JSImport not yet implemented");
+        }
 
-        [DllImport("worldline")]
-        static extern void PhraseSynthSetCurves(
+        static void PhraseSynthSetCurves(
             IntPtr phraseSynth, double[] f0,
             double[] gender, double[] tension,
             double[] breathiness, double[] voicing,
-            int length, LogCallback logCallback);
+            int length, LogCallback logCallback) {
+            throw new NotImplementedException("PhraseSynthSetCurves via JSImport not yet implemented");
+        }
 
-        [DllImport("worldline")]
-        static extern int PhraseSynthSynth(
+        static int PhraseSynthSynth(
             IntPtr phrase_synth,
-            ref IntPtr y, LogCallback logCallback);
+            ref IntPtr y, LogCallback logCallback) {
+            throw new NotImplementedException("PhraseSynthSynth via JSImport not yet implemented");
+        }
 
         public class PhraseSynth : IDisposable {
             private IntPtr ptr;
@@ -472,6 +768,8 @@ namespace OpenUtau.Core.Render {
             public SynthSegment(AnalysisConfig cfg, ResamplerItem item,
                 double posMs, double skipMs, double lengthMs,
                 double fadeInMs, double fadeOutMs) {
+                var totalSw = System.Diagnostics.Stopwatch.StartNew();
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 const int fs = 44100;
                 config = cfg;
                 float[] samples = new float[0];
@@ -485,6 +783,8 @@ namespace OpenUtau.Core.Render {
                 if (samples.Length == 0) {
                     throw new Exception($"Empty samples in {item.inputFile}.");
                 }
+                // Console.WriteLine($"[SynthSegment] ⏱️ Load WAV: {sw.ElapsedMilliseconds}ms");
+                sw.Restart();
 
                 var frq = new Frq();
                 bool hasFrq = frq.Load(item.inputFile);
@@ -549,7 +849,12 @@ namespace OpenUtau.Core.Render {
                     samples[i] = samples[i] * gain;
                 }
 
+                // Console.WriteLine($"[SynthSegment] ⏱️ F0+Prep: {sw.ElapsedMilliseconds}ms");
+                sw.Restart();
                 WorldAnalysisF0In(ref cfg, samples, f0Src, out var spEnvSrc, out var apSrc);
+                // Console.WriteLine($"[SynthSegment] ⏱️ WorldAnalysisF0In: {sw.ElapsedMilliseconds}ms");
+                sw.Restart();
+
 
                 double[] tSrc = new double[srcEndFrame - srcStartFrame];
                 for (int i = 0; i < tSrc.Length; ++i) {
@@ -582,20 +887,54 @@ namespace OpenUtau.Core.Render {
                 var f0Dst = np.ndarray(new Shape(tDst.Length), typeof(double));
                 var spEnvDst = np.ndarray(new Shape(tDst.Length, spEnvSrc.shape[1]), typeof(double));
                 var apDst = np.ndarray(new Shape(tDst.Length, apSrc.shape[1]), typeof(double));
-                for (int i = 0; i < tDst.Length; ++i) {
-                    double pos = tDst[i];
-                    int index = (int)Math.Floor(pos);
-                    double frac = pos - index;
-                    if (index + 1 < f0Src.Length) {
-                        f0Dst[i] = f0Src[index] * (1.0 - frac) + f0Src[index + 1] * frac;
-                        spEnvDst[i] = spEnvSrc[index] * (1.0 - frac) + spEnvSrc[index + 1] * frac;
-                        apDst[i] = apSrc[index] * (1.0 - frac) + apSrc[index + 1] * frac;
-                    } else {
-                        f0Dst[i] = f0Src[index];
-                        spEnvDst[i] = spEnvSrc[index];
-                        apDst[i] = apSrc[index];
+                int spSize = (int)spEnvSrc.shape[1];
+
+
+                Log.Information($"[SynthSegment] Interpolation: tDst.Length={tDst.Length}, f0Src.Length={f0Src.Length}, srcStartFrame={srcStartFrame}, srcEndFrame={srcEndFrame}");
+
+                // Use unsafe pointers for fast memory access instead of slow NDArray indexers
+                unsafe {
+                    double* f0DstPtr = (double*)f0Dst.Data<double>().Address;
+                    double* spEnvSrcPtr = (double*)spEnvSrc.Data<double>().Address;
+                    double* spEnvDstPtr = (double*)spEnvDst.Data<double>().Address;
+                    double* apSrcPtr = (double*)apSrc.Data<double>().Address;
+                    double* apDstPtr = (double*)apDst.Data<double>().Address;
+
+                    for (int i = 0; i < tDst.Length; ++i) {
+                        double pos = tDst[i];
+                        // Clamp pos to valid range [0, f0Src.Length - 1]
+                        pos = Math.Max(0, Math.Min(f0Src.Length - 1, pos));
+                        int index = (int)Math.Floor(pos);
+                        double frac = pos - index;
+
+                        if (index < 0 || index >= f0Src.Length) {
+                            Log.Error($"[SynthSegment] ❌ Index out of range at i={i}: pos={pos}, index={index}, f0Src.Length={f0Src.Length}");
+                            throw new IndexOutOfRangeException($"Index {index} out of range for f0Src (length {f0Src.Length}) at i={i}, pos={pos}");
+                        }
+
+                        if (index + 1 < f0Src.Length) {
+                            f0DstPtr[i] = f0Src[index] * (1.0 - frac) + f0Src[index + 1] * frac;
+                            // Interpolate 2D array rows using pointer arithmetic
+                            int srcRow0 = index * spSize;
+                            int srcRow1 = (index + 1) * spSize;
+                            int dstRow = i * spSize;
+                            for (int j = 0; j < spSize; ++j) {
+                                spEnvDstPtr[dstRow + j] = spEnvSrcPtr[srcRow0 + j] * (1.0 - frac) + spEnvSrcPtr[srcRow1 + j] * frac;
+                                apDstPtr[dstRow + j] = apSrcPtr[srcRow0 + j] * (1.0 - frac) + apSrcPtr[srcRow1 + j] * frac;
+                            }
+                        } else {
+                            f0DstPtr[i] = f0Src[index];
+                            // Copy 2D array rows using pointer arithmetic
+                            int srcRow = index * spSize;
+                            int dstRow = i * spSize;
+                            for (int j = 0; j < spSize; ++j) {
+                                spEnvDstPtr[dstRow + j] = spEnvSrcPtr[srcRow + j];
+                                apDstPtr[dstRow + j] = apSrcPtr[srcRow + j];
+                            }
+                        }
                     }
                 }
+                // Console.WriteLine($"[SynthSegment] ⏱️ Interpolation: {sw.ElapsedMilliseconds}ms");
 
                 f0 = f0Dst;
                 spEnv = spEnvDst;
@@ -609,6 +948,9 @@ namespace OpenUtau.Core.Render {
                 p0 = Math.Max(0, p0);
                 p1 = Math.Max(p0 + 1, p1);
                 p3 = Math.Min(p4 - 1, p3);
+
+                totalSw.Stop();
+                // Console.WriteLine($"[SynthSegment] ✅ Total: {totalSw.ElapsedMilliseconds}ms");
             }
 
             float GetAutoGain(float[] samples, double[] f0, float wavMax, int peakComp) {
@@ -694,6 +1036,7 @@ namespace OpenUtau.Core.Render {
             }
 
             public float[] Synth() {
+                // Console.WriteLine($"[PhraseSynthV2] Synth() called. Segments count: {segments.Count}");
                 if (segments.Count == 0) {
                     return new float[0];
                 }
@@ -702,6 +1045,7 @@ namespace OpenUtau.Core.Render {
                 double[] f0Array = f0Out.ToArray<double>();
                 double[] spEnvArray = spEnvOut.ToArray<double>();
                 double[] apArray = apOut.ToArray<double>();
+                // Console.WriteLine($"[PhraseSynthV2] Calling WorldSynthesis with f0Array len: {f0Array.Length}");
                 double[] samples = WorldSynthesis(
                     f0Array,
                     spEnvArray, false, spSize,
@@ -711,6 +1055,7 @@ namespace OpenUtau.Core.Render {
                     tensionCurve ?? Enumerable.Repeat(0.5, totalFrames).ToArray(),
                     breathinessCurve ?? Enumerable.Repeat(0.5, totalFrames).ToArray(),
                     voicingCurve ?? Enumerable.Repeat(1.0, totalFrames).ToArray());
+                // Console.WriteLine($"[PhraseSynthV2] WorldSynthesis returned {samples.Length} samples.");
                 return samples.Select(s => (float)s).ToArray();
             }
         }

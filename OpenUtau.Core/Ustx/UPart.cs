@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -66,7 +66,7 @@ namespace OpenUtau.Core.Ustx {
             project.timeAxis.TickPosToBarBeat(endTicks, out int bar, out int beat, out int remainingTicks);
             return project.timeAxis.BarBeatToTickPos(bar, beat + 1) - position;
         }
-        
+
         public override int GetMaxPosiTick(UProject project) {
             int maxStartTick = position + (notes.FirstOrDefault()?.position ?? Duration);
             project.timeAxis.TickPosToBarBeat(maxStartTick, out int bar, out int beat, out int remainingTicks);
@@ -143,6 +143,9 @@ namespace OpenUtau.Core.Ustx {
                 };
                 notesTimestamp = request.timestamp;
                 DocManager.Inst.PhonemizerRunner?.Push(request);
+                if (DocManager.Inst.PhonemizerRunner == null) {
+                    // Console.WriteLine($"[UVoicePart] PhonemizerRunner is null!");
+                }
             }
             lock (this) {
                 if (phonemizerResponse != null) {
@@ -242,17 +245,23 @@ namespace OpenUtau.Core.Ustx {
             renderPhrases.Clear();
             if (PhonemesUpToDate) {
                 renderPhrases.AddRange(RenderPhrase.FromPart(project, track, this));
+            } else {
+                // Console.WriteLine($"[UVoicePart] Phonemes not up to date. NotesTs={notesTimestamp}, PhonemesTs={phonemesTimestamp}");
             }
         }
 
         internal void SetPhonemizerResponse(PhonemizerResponse response) {
             lock (this) {
+                // Console.WriteLine($"[UVoicePart] SetPhonemizerResponse called. Timestamp={response.timestamp}");
                 phonemizerResponse = response;
             }
         }
 
         internal RenderPartRequest GetRenderRequest() {
             lock (this) {
+                if (renderPhrases.Count == 0) {
+                    // Console.WriteLine($"[UVoicePart] GetRenderRequest returning 0 phrases. PhonemesUpToDate={PhonemesUpToDate}");
+                }
                 return new RenderPartRequest() {
                     part = this,
                     timestamp = notesTimestamp,
@@ -339,6 +348,7 @@ namespace OpenUtau.Core.Ustx {
 
         private readonly object loadLockObj = new object();
         public void Load(UProject project) {
+            // Console.WriteLine($"[UWavePart] Load called for {FilePath}");
             try {
                 using (var waveStream = Format.Wave.OpenFile(FilePath)) {
                     fileDurationMs = waveStream.TotalTime.TotalMilliseconds;
@@ -358,8 +368,23 @@ namespace OpenUtau.Core.Ustx {
                 }
             }
             UpdateDuration(project);
-            Peaks = Task.Run(() => {
+            if (OpenUtau.OS.IsWasm()) {
+                Peaks = Task.FromResult(BuildPeaksWorker());
+            } else {
+                Peaks = Task.Run(() => BuildPeaksWorker());
+            }
+        }
+
+        public override void Validate(ValidateOptions options, UProject project, UTrack track) {
+            UpdateDuration(project);
+        }
+
+        private DiscreteSignal[] BuildPeaksWorker() {
+            try {
+                // Re-instantiate stopwatch since it was removed from outer scope in previous broken edit
                 var stopwatch = Stopwatch.StartNew();
+
+                // Re-add file reading logic that was mostly removed by bad edit
                 using (var waveStream = Format.Wave.OpenFile(FilePath)) {
                     var samples = Format.Wave.GetStereoSamples(waveStream);
                     lock (loadLockObj) {
@@ -394,12 +419,12 @@ namespace OpenUtau.Core.Ustx {
                 peaksSampleRate = sampleRate / 10;
                 stopwatch.Stop();
                 Log.Information($"Built peaks {FilePath} {stopwatch.Elapsed}");
+                // Console.WriteLine($"[UWavePart] Peaks built successfully. Channels: {channels}, Peaks Length: {peaks[0]?.Samples?.Length ?? 0}");
                 return peaks;
-            });
-        }
-
-        public override void Validate(ValidateOptions options, UProject project, UTrack track) {
-            UpdateDuration(project);
+            } catch (Exception ex) {
+                // Console.WriteLine($"[UWavePart] CRITICAL ERROR in Task: {ex}");
+                throw;
+            }
         }
 
         private void UpdateDuration(UProject project) {

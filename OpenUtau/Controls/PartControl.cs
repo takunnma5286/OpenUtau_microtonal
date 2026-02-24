@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
@@ -13,6 +13,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Serilog;
 using System.Threading;
+using Avalonia.Threading;
 using NWaves.Signals;
 
 namespace OpenUtau.App.Controls {
@@ -114,14 +115,14 @@ namespace OpenUtau.App.Controls {
             SetPosition();
 
             if (part is UWavePart wavePart) {
-                var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
                 wavePart.Peaks.ContinueWith((task) => {
                     if (task.IsFaulted) {
                         Log.Error(task.Exception, "Failed to build peaks");
+                        // Console.WriteLine($"Failed to build peaks: {task.Exception}");
                     } else {
-                        InvalidateVisual();
+                        Dispatcher.UIThread.Post(() => InvalidateVisual());
                     }
-                }, CancellationToken.None, TaskContinuationOptions.None, scheduler);
+                });
             }
         }
 
@@ -153,47 +154,53 @@ namespace OpenUtau.App.Controls {
         }
 
         public override void Render(DrawingContext context) {
-            var backgroundBrush = Selected ? ThemeManager.AccentBrush2 : ThemeManager.AccentBrush1;
-            // Background
-            context.DrawRectangle(backgroundBrush, null, new Rect(1, 0, Width - 1, Height - 1), 4, 4);
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try {
+                var backgroundBrush = Selected ? ThemeManager.AccentBrush2 : ThemeManager.AccentBrush1;
+                // Background
+                context.DrawRectangle(backgroundBrush, null, new Rect(1, 0, Width - 1, Height - 1), 4, 4);
 
-            // Text
-            var textLayout = TextLayoutCache.Get(Text, Brushes.White, 12);
-            using (var state = context.PushTransform(Matrix.CreateTranslation(3, 2))) {
-                context.DrawRectangle(backgroundBrush, null, new Rect(new Point(0, 0), new Size(textLayout.Width, textLayout.Height)));
-                textLayout.Draw(context, new Point());
-            }
+                // Text
+                var textLayout = TextLayoutCache.Get(Text, Brushes.White, 12);
+                using (var state = context.PushTransform(Matrix.CreateTranslation(3, 2))) {
+                    context.DrawRectangle(backgroundBrush, null, new Rect(new Point(0, 0), new Size(textLayout.Width, textLayout.Height)));
+                    textLayout.Draw(context, new Point());
+                }
 
-            if (part == null) {
-                return;
-            }
-            if (part is UVoicePart voicePart && voicePart.notes.Count > 0) {
-                // Notes
-                int maxTone = voicePart.notes.Max(note => note.tone);
-                int minTone = voicePart.notes.Min(note => note.tone);
-                if (maxTone - minTone < 52) {
-                    int additional = (52 - (maxTone - minTone)) / 2;
-                    minTone -= additional;
-                    maxTone += additional;
+                if (part == null) {
+                    return;
                 }
-                using var pushedState = context.PushTransform(Matrix.CreateScale(1, trackHeight / (maxTone - minTone)));
-                foreach (var note in voicePart.notes) {
-                    var start = new Point((int)(note.position * tickWidth), maxTone - note.tone);
-                    var end = new Point((int)(note.End * tickWidth), maxTone - note.tone);
-                    context.DrawLine(notePen, start, end);
-                }
-            } else if (part is UWavePart wavePart) {
-                // Waveform
-                try {
-                    DrawWaveform(wavePart, GetBitmap(ViewWidth));
-                    if (bitmap != null) {
-                        var srcRect = Bounds.WithY(0);
-                        var dstRect = Bounds.WithX(1).WithY(0);
-                        context.DrawImage(bitmap, srcRect, dstRect);
+                if (part is UVoicePart voicePart && voicePart.notes.Count > 0) {
+                    // Notes
+                    int maxTone = voicePart.notes.Max(note => note.tone);
+                    int minTone = voicePart.notes.Min(note => note.tone);
+                    if (maxTone - minTone < 52) {
+                        int additional = (52 - (maxTone - minTone)) / 2;
+                        minTone -= additional;
+                        maxTone += additional;
                     }
-                } catch (Exception e) {
-                    Log.Error(e, "failed to draw bitmap");
+                    using var pushedState = context.PushTransform(Matrix.CreateScale(1, trackHeight / (maxTone - minTone)));
+                    foreach (var note in voicePart.notes) {
+                        var start = new Point((int)(note.position * tickWidth), maxTone - note.tone);
+                        var end = new Point((int)(note.End * tickWidth), maxTone - note.tone);
+                        context.DrawLine(notePen, start, end);
+                    }
+                } else if (part is UWavePart wavePart) {
+                    // Waveform
+                    try {
+                        DrawWaveform(wavePart, GetBitmap(ViewWidth));
+                        if (bitmap != null) {
+                            var srcRect = Bounds.WithY(0);
+                            var dstRect = Bounds.WithX(1).WithY(0);
+                            context.DrawImage(bitmap, srcRect, dstRect);
+                        }
+                    } catch (Exception e) {
+                        Log.Error(e, "failed to draw bitmap");
+                    }
                 }
+            } finally {
+                stopwatch.Stop();
+                System.Console.WriteLine($"[RenderPerf] PartControl: {stopwatch.Elapsed.TotalMilliseconds:F3}ms");
             }
         }
 

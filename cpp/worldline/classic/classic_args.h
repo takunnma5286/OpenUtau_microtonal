@@ -4,14 +4,14 @@
 #include <string>
 #include <vector>
 
-#include "worldline/synth_request.h"
+#include "../synth_request.h"
 
 namespace worldline {
 
-SynthRequest ParseClassicArgs(const std::vector<std::string>& args);
+SynthRequest ParseClassicArgs(const std::vector<std::string> &args);
 
-void LogClassicArgs(const SynthRequest& request, const std::string& logfile);
+void LogClassicArgs(const SynthRequest &request, const std::string &logfile);
 
-}  // namespace worldline
+} // namespace worldline
 
-#endif  // WORLDLINE_CLASSIC_CLASSIC_ARGS_H_
+#endif // WORLDLINE_CLASSIC_CLASSIC_ARGS_H_

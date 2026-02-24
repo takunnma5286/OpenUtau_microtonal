@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
@@ -91,88 +91,101 @@ namespace OpenUtau.App.Controls {
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
-            InvalidateVisual();
+            // OPTIMIZATION: Only invalidate for rendering-relevant properties
+            if (change.Property == BackgroundProperty ||
+                change.Property == TickWidthProperty ||
+                change.Property == TickOffsetProperty ||
+                change.Property == PartProperty ||
+                change.Property == ShowPhonemeProperty) {
+                InvalidateVisual();
+            }
         }
 
         public override void Render(DrawingContext context) {
-            base.Render(context);
-            if (Part == null || !ShowPhoneme) {
-                return;
-            }
-            string langCode = PhonemeUIRender.getLangCode(Part);
-            var viewModel = ((PianoRollViewModel?)DataContext)?.NotesViewModel;
-            if (viewModel == null) {
-                return;
-            }
-            context.DrawRectangle(Background, null, Bounds.WithX(0).WithY(0));
-            double leftTick = TickOffset - 480;
-            double rightTick = TickOffset + Bounds.Width / TickWidth + 480;
-            bool raiseText = false;
-            double lastTextEndX = double.NegativeInfinity;
-
-            const double y = 35.5;
-            const double height = 24;
-            foreach (var phoneme in Part.phonemes) {
-                double leftBound = viewModel.Project.timeAxis.MsPosToTickPos(phoneme.PositionMs - phoneme.preutter) - Part.position;
-                double rightBound = phoneme.End;
-                if (leftBound > rightTick || rightBound < leftTick || phoneme.Parent.OverlapError) {
-                    continue;
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try {
+                base.Render(context);
+                if (Part == null || !ShowPhoneme) {
+                    return;
                 }
-                var timeAxis = viewModel.Project.timeAxis;
-                double x = Math.Round(viewModel.TickToneToPoint(phoneme.position, 0).X) + 0.5;
-                double posMs = phoneme.PositionMs;
-                if (!phoneme.Error) {
-                    double x0 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[0].X) - Part.position, 0).X;
-                    double y0 = (1 - phoneme.envelope.data[0].Y / 100) * height;
-                    double x1 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[1].X) - Part.position, 0).X;
-                    double y1 = (1 - phoneme.envelope.data[1].Y / 100) * height;
-                    double x2 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[2].X) - Part.position, 0).X;
-                    double y2 = (1 - phoneme.envelope.data[2].Y / 100) * height;
-                    double x3 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[3].X) - Part.position, 0).X;
-                    double y3 = (1 - phoneme.envelope.data[3].Y / 100) * height;
-                    double x4 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[4].X) - Part.position, 0).X;
-                    double y4 = (1 - phoneme.envelope.data[4].Y / 100) * height;
+                string langCode = PhonemeUIRender.getLangCode(Part);
+                var viewModel = ((PianoRollViewModel?)DataContext)?.NotesViewModel;
+                if (viewModel == null) {
+                    return;
+                }
+                context.DrawRectangle(Background, null, Bounds.WithX(0).WithY(0));
+                double leftTick = TickOffset - 480;
+                double rightTick = TickOffset + Bounds.Width / TickWidth + 480;
+                bool raiseText = false;
+                double lastTextEndX = double.NegativeInfinity;
 
-                    var pen = selectedNotes.Contains(phoneme.Parent) ? ThemeManager.AccentPen2 : ThemeManager.AccentPen1;
-                    var brush = selectedNotes.Contains(phoneme.Parent) ? ThemeManager.AccentBrush2Semi : ThemeManager.AccentBrush1Semi;
-
-                    var point0 = new Point(x0, y + y0);
-                    var point1 = new Point(x1, y + y1);
-                    var point2 = new Point(x2, y + y2);
-                    var point3 = new Point(x3, y + y3);
-                    var point4 = new Point(x4, y + y4);
-                    var polyline = new PolylineGeometry(new Point[] { point0, point1, point2, point3, point4 }, true);
-                    context.DrawGeometry(brush, pen, polyline);
-
-                    brush = phoneme.preutterDelta.HasValue ? pen!.Brush : ThemeManager.BackgroundBrush;
-                    using (var state = context.PushTransform(Matrix.CreateTranslation(x0, y + y0 - 1))) {
-                        context.DrawGeometry(brush, pen, pointGeometry);
+                const double y = 35.5;
+                const double height = 24;
+                foreach (var phoneme in Part.phonemes) {
+                    double leftBound = viewModel.Project.timeAxis.MsPosToTickPos(phoneme.PositionMs - phoneme.preutter) - Part.position;
+                    double rightBound = phoneme.End;
+                    if (leftBound > rightTick || rightBound < leftTick || phoneme.Parent.OverlapError) {
+                        continue;
                     }
-                    brush = phoneme.overlapDelta.HasValue ? pen!.Brush : ThemeManager.BackgroundBrush;
-                    using (var state = context.PushTransform(Matrix.CreateTranslation(point1))) {
-                        context.DrawGeometry(brush, pen, pointGeometry);
+                    var timeAxis = viewModel.Project.timeAxis;
+                    double x = Math.Round(viewModel.TickToneToPoint(phoneme.position, 0).X) + 0.5;
+                    double posMs = phoneme.PositionMs;
+                    if (!phoneme.Error) {
+                        double x0 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[0].X) - Part.position, 0).X;
+                        double y0 = (1 - phoneme.envelope.data[0].Y / 100) * height;
+                        double x1 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[1].X) - Part.position, 0).X;
+                        double y1 = (1 - phoneme.envelope.data[1].Y / 100) * height;
+                        double x2 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[2].X) - Part.position, 0).X;
+                        double y2 = (1 - phoneme.envelope.data[2].Y / 100) * height;
+                        double x3 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[3].X) - Part.position, 0).X;
+                        double y3 = (1 - phoneme.envelope.data[3].Y / 100) * height;
+                        double x4 = viewModel.TickToneToPoint(timeAxis.MsPosToTickPos(posMs + phoneme.envelope.data[4].X) - Part.position, 0).X;
+                        double y4 = (1 - phoneme.envelope.data[4].Y / 100) * height;
+
+                        var pen = selectedNotes.Contains(phoneme.Parent) ? ThemeManager.AccentPen2 : ThemeManager.AccentPen1;
+                        var brush = selectedNotes.Contains(phoneme.Parent) ? ThemeManager.AccentBrush2Semi : ThemeManager.AccentBrush1Semi;
+
+                        var point0 = new Point(x0, y + y0);
+                        var point1 = new Point(x1, y + y1);
+                        var point2 = new Point(x2, y + y2);
+                        var point3 = new Point(x3, y + y3);
+                        var point4 = new Point(x4, y + y4);
+                        var polyline = new PolylineGeometry(new Point[] { point0, point1, point2, point3, point4 }, true);
+                        context.DrawGeometry(brush, pen, polyline);
+
+                        brush = phoneme.preutterDelta.HasValue ? pen!.Brush : ThemeManager.BackgroundBrush;
+                        using (var state = context.PushTransform(Matrix.CreateTranslation(x0, y + y0 - 1))) {
+                            context.DrawGeometry(brush, pen, pointGeometry);
+                        }
+                        brush = phoneme.overlapDelta.HasValue ? pen!.Brush : ThemeManager.BackgroundBrush;
+                        using (var state = context.PushTransform(Matrix.CreateTranslation(point1))) {
+                            context.DrawGeometry(brush, pen, pointGeometry);
+                        }
                     }
-                }
 
-                var penPos = ThemeManager.AccentPen2;
-                if (phoneme.rawPosition != phoneme.position) {
-                    penPos = ThemeManager.AccentPen2Thickness3;
-                }
-                context.DrawLine(penPos, new Point(x, y), new Point(x, y + height));
+                    var penPos = ThemeManager.AccentPen2;
+                    if (phoneme.rawPosition != phoneme.position) {
+                        penPos = ThemeManager.AccentPen2Thickness3;
+                    }
+                    context.DrawLine(penPos, new Point(x, y), new Point(x, y + height));
 
-                // FIXME: Changing code below may break `HitTestAlias`.
-                if (viewModel.TickWidth > ViewConstants.PianoRollTickWidthShowDetails) {
-                    string phonemeText = !string.IsNullOrEmpty(phoneme.phonemeMapped) ? phoneme.phonemeMapped : phoneme.phoneme;
-                    if (!string.IsNullOrEmpty(phonemeText)) {
-                        (double textX, double textY, Size size, TextLayout textLayout) 
-                        = PhonemeUIRender.AliasPosition(viewModel, phoneme, langCode, ref lastTextEndX, ref raiseText);
-                        using (var state = context.PushTransform(Matrix.CreateTranslation(textX + 2, textY))) {
-                            var pen = mouseoverPhoneme == phoneme ? ThemeManager.AccentPen1Thickness2 : ThemeManager.NeutralAccentPenSemi;
-                            context.DrawRectangle(ThemeManager.BackgroundBrush, pen, new Rect(new Point(-2, 1.5), size), 4, 4);
-                            textLayout.Draw(context, new Point());
+                    // FIXME: Changing code below may break `HitTestAlias`.
+                    if (viewModel.TickWidth > ViewConstants.PianoRollTickWidthShowDetails) {
+                        string phonemeText = !string.IsNullOrEmpty(phoneme.phonemeMapped) ? phoneme.phonemeMapped : phoneme.phoneme;
+                        if (!string.IsNullOrEmpty(phonemeText)) {
+                            (double textX, double textY, Size size, TextLayout textLayout)
+                            = PhonemeUIRender.AliasPosition(viewModel, phoneme, langCode, ref lastTextEndX, ref raiseText);
+                            using (var state = context.PushTransform(Matrix.CreateTranslation(textX + 2, textY))) {
+                                var pen = mouseoverPhoneme == phoneme ? ThemeManager.AccentPen1Thickness2 : ThemeManager.NeutralAccentPenSemi;
+                                context.DrawRectangle(ThemeManager.BackgroundBrush, pen, new Rect(new Point(-2, 1.5), size), 4, 4);
+                                textLayout.Draw(context, new Point());
+                            }
                         }
                     }
                 }
+            } finally {
+                stopwatch.Stop();
+                System.Console.WriteLine($"[RenderPerf] PhonemeCanvas: {stopwatch.Elapsed.TotalMilliseconds:F3}ms");
             }
         }
     }

@@ -5,20 +5,43 @@
 #include <iostream>
 #include <string>
 
-#include "absl/strings/numbers.h"
+#include <stdlib.h>
 
 namespace worldline {
 
-static constexpr int name_to_tone[] = {9, 11, 0, 2, 4, 5, 7};  // A to G
+static bool SimpleAtoi(const std::string &s, int *out) {
+  char *end;
+  long val = strtol(s.c_str(), &end, 10);
+  if (end == s.c_str())
+    return false;
+  *out = static_cast<int>(val);
+  return true;
+}
 
-static bool ParseTone(std::string_view name, int equal_temperament, int* tone) {
+static bool SimpleAtod(const std::string &s, double *out) {
+  char *end;
+  double val = strtod(s.c_str(), &end);
+  if (end == s.c_str())
+    return false;
+  *out = val;
+  return true;
+}
+
+static constexpr int name_to_tone[] = {9, 11, 0, 2, 4, 5, 7}; // A to G
+
+template <typename T> T Clamp(T v, T lo, T hi) {
+  return std::min(hi, std::max(lo, v));
+}
+
+static bool ParseTone(const std::string &name, int equal_temperament,
+                      int *tone) {
   if (equal_temperament == 12) {
     if (name.size() < 2 || name.size() > 3) {
       return false;
     }
     bool sharp = name.size() == 3;
     int octave;
-    if (!absl::SimpleAtoi(name.substr(name.size() - 1, 1), &octave)) {
+    if (!SimpleAtoi(name.substr(name.size() - 1, 1), &octave)) {
       return false;
     }
     int tone_index = name[0] - 'A';
@@ -29,11 +52,11 @@ static bool ParseTone(std::string_view name, int equal_temperament, int* tone) {
     *tone = 12 * (octave + 1) + *tone + (sharp ? 1 : 0);
     return true;
   }
-  return absl::SimpleAtoi(name, tone);
+  return SimpleAtoi(name, tone);
 }
 
-void ParseClassicFlag(std::string_view flags, std::string_view flag, int* value,
-                      int default_value) {
+void ParseClassicFlag(const std::string &flags, const std::string &flag,
+                      int *value, int default_value) {
   int index = flags.find(flag);
   if (index < 0) {
     *value = default_value;
@@ -49,15 +72,15 @@ void ParseClassicFlag(std::string_view flags, std::string_view flag, int* value,
     *value = default_value;
     return;
   }
-  std::string_view value_str = flags.substr(start, pos - start);
-  if (!absl::SimpleAtoi(value_str, value)) {
+  std::string value_str = flags.substr(start, pos - start);
+  if (!SimpleAtoi(value_str, value)) {
     *value = default_value;
   }
 }
 
-static void ParseFlags(SynthRequest& request, std::string flags) {
+static void ParseFlags(SynthRequest &request, std::string flags) {
   ParseClassicFlag(flags, "g", &request.flag_g, 0);
-  request.flag_g = std::clamp(request.flag_g, -100, 100);
+  request.flag_g = Clamp(request.flag_g, -100, 100);
   if (request.flag_g != 0) {
     std::cout << "Flag g: " << request.flag_g << std::endl;
   }
@@ -66,28 +89,28 @@ static void ParseFlags(SynthRequest& request, std::string flags) {
     std::cout << "Flag O: " << request.flag_O << std::endl;
   }
   ParseClassicFlag(flags, "P", &request.flag_P, 86);
-  request.flag_P = std::clamp(request.flag_P, 0, 100);
+  request.flag_P = Clamp(request.flag_P, 0, 100);
   std::cout << "Flag P: " << request.flag_P << std::endl;
   ParseClassicFlag(flags, "Mt", &request.flag_Mt, 0);
-  request.flag_Mt = std::clamp(request.flag_Mt, -100, 100);
+  request.flag_Mt = Clamp(request.flag_Mt, -100, 100);
   if (request.flag_Mt != 0) {
     std::cout << "Flag Mt: " << request.flag_Mt << std::endl;
   }
   ParseClassicFlag(flags, "Mb", &request.flag_Mb, 0);
-  request.flag_Mb = std::clamp(request.flag_Mb, -100, 100);
+  request.flag_Mb = Clamp(request.flag_Mb, -100, 100);
   if (request.flag_Mb != 0) {
     std::cout << "Flag Mb: " << request.flag_Mb << std::endl;
   }
   ParseClassicFlag(flags, "Mv", &request.flag_Mv, 100);
-  request.flag_Mv = std::clamp(request.flag_Mv, 0, 100);
+  request.flag_Mv = Clamp(request.flag_Mv, 0, 100);
   if (request.flag_Mv != 100) {
     std::cout << "Flag Mv: " << request.flag_Mv << std::endl;
   }
 }
 
-static bool ParseTempo(std::string arg, double* tempo) {
+static bool ParseTempo(std::string arg, double *tempo) {
   arg = arg.size() > 0 && !std::isdigit(arg[0]) ? arg.substr(1) : arg;
-  return absl::SimpleAtod(arg, tempo);
+  return SimpleAtod(arg, tempo);
 }
 
 static int CharToInt(char c) {
@@ -107,7 +130,7 @@ static int CharToInt(char c) {
   return 63;
 }
 
-static std::vector<int> ParsePitchBend(const std::string& encoded) {
+static std::vector<int> ParsePitchBend(const std::string &encoded) {
   std::vector<int> result;
   int p = 0;
   while (p < encoded.size()) {
@@ -135,21 +158,22 @@ static std::vector<int> ParsePitchBend(const std::string& encoded) {
   return result;
 }
 
-SynthRequest ParseClassicArgs(const std::vector<std::string>& args) {
+SynthRequest ParseClassicArgs(const std::vector<std::string> &args) {
   SynthRequest request;
-  if (args.size() <= 13 || !absl::SimpleAtoi(args[13], &request.equal_temperament)) {
+  if (args.size() <= 13 || !SimpleAtoi(args[13], &request.equal_temperament)) {
     request.equal_temperament = 12;
   }
-  if (args.size() <= 14 || !absl::SimpleAtod(args[14], &request.concert_pitch)) {
+  if (args.size() <= 14 || !SimpleAtod(args[14], &request.concert_pitch)) {
     request.concert_pitch = 440.0;
   }
-  if (args.size() <= 15 || !absl::SimpleAtoi(args[15], &request.concert_pitch_note)) {
+  if (args.size() <= 15 || !SimpleAtoi(args[15], &request.concert_pitch_note)) {
     request.concert_pitch_note = 69;
   }
-  if (args.size() <= 2 || !ParseTone(args[2], request.equal_temperament, &request.tone)) {
+  if (args.size() <= 2 ||
+      !ParseTone(args[2], request.equal_temperament, &request.tone)) {
     request.tone = 40;
   }
-  if (args.size() <= 3 || !absl::SimpleAtod(args[3], &request.con_vel)) {
+  if (args.size() <= 3 || !SimpleAtod(args[3], &request.con_vel)) {
     request.con_vel = 100;
   }
   if (args.size() <= 4) {
@@ -157,23 +181,22 @@ SynthRequest ParseClassicArgs(const std::vector<std::string>& args) {
   } else {
     ParseFlags(request, args[4]);
   }
-  if (args.size() <= 5 || !absl::SimpleAtod(args[5], &request.offset)) {
+  if (args.size() <= 5 || !SimpleAtod(args[5], &request.offset)) {
     request.offset = 0;
   }
-  if (args.size() <= 6 ||
-      !absl::SimpleAtod(args[6], &request.required_length)) {
+  if (args.size() <= 6 || !SimpleAtod(args[6], &request.required_length)) {
     request.required_length = 0;
   }
-  if (args.size() <= 7 || !absl::SimpleAtod(args[7], &request.consonant)) {
+  if (args.size() <= 7 || !SimpleAtod(args[7], &request.consonant)) {
     request.consonant = 0;
   }
-  if (args.size() <= 8 || !absl::SimpleAtod(args[8], &request.cut_off)) {
+  if (args.size() <= 8 || !SimpleAtod(args[8], &request.cut_off)) {
     request.cut_off = 0;
   }
-  if (args.size() <= 9 || !absl::SimpleAtod(args[9], &request.volume)) {
+  if (args.size() <= 9 || !SimpleAtod(args[9], &request.volume)) {
     request.volume = 100;
   }
-  if (args.size() <= 10 || !absl::SimpleAtod(args[10], &request.modulation)) {
+  if (args.size() <= 10 || !SimpleAtod(args[10], &request.modulation)) {
     request.modulation = 100;
   }
   if (args.size() <= 11 || !ParseTempo(args[11], &request.tempo)) {
@@ -185,14 +208,14 @@ SynthRequest ParseClassicArgs(const std::vector<std::string>& args) {
   } else {
     std::vector<int> pitch_bend = ParsePitchBend(args[12]);
     request.pitch_bend_length = pitch_bend.size();
-    int* pitch_bend_array = new int[pitch_bend.size()];
+    int *pitch_bend_array = new int[pitch_bend.size()];
     std::copy(pitch_bend.begin(), pitch_bend.end(), pitch_bend_array);
     request.pitch_bend = pitch_bend_array;
   }
   return request;
 }
 
-void LogClassicArgs(const SynthRequest& request, const std::string& logfile) {
+void LogClassicArgs(const SynthRequest &request, const std::string &logfile) {
   std::ofstream f;
   f.open(logfile, std::ios::out | std::ios::app);
   f << "{";
@@ -218,4 +241,4 @@ void LogClassicArgs(const SynthRequest& request, const std::string& logfile) {
   f.close();
 }
 
-}  // namespace worldline
+} // namespace worldline

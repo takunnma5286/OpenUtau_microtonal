@@ -3,18 +3,18 @@
 #include <cmath>
 #include <vector>
 
-#include "worldline/model/model.h"
-#include "worldline/synth_request.h"
+#include "../model/model.h"
+#include "../synth_request.h"
 
 namespace worldline {
 
-double GetInTotalMs(Model& model, const SynthRequest& request) {
+double GetInTotalMs(Model &model, const SynthRequest &request) {
   return request.cut_off < 0
              ? -request.cut_off
              : model.total_ms() - request.offset - request.cut_off;
 }
 
-std::vector<double> GetTimeMapping(Model& model, const SynthRequest& request) {
+std::vector<double> GetTimeMapping(Model &model, const SynthRequest &request) {
   std::vector<double> mapping;
   double frame_ms = model.frame_ms();
   double con_speed = std::pow(0.5, 1.0 - request.con_vel / 100.0);
@@ -39,15 +39,15 @@ std::vector<double> GetTimeMapping(Model& model, const SynthRequest& request) {
   return mapping;
 }
 
-void ShiftTimeMapping(std::vector<double>& mapping, double shift) {
+void ShiftTimeMapping(std::vector<double> &mapping, double shift) {
   for (int i = 0; i < mapping.size(); ++i) {
     mapping[i] = mapping[i] + shift;
   }
 }
 
-void PadTimeMapping(std::vector<double>& mapping, int frames) {
+void PadTimeMapping(std::vector<double> &mapping, int frames) {
   mapping.insert(mapping.begin(), frames, mapping.front());
   mapping.insert(mapping.end(), frames, mapping.back());
 }
 
-}  // namespace worldline
+} // namespace worldline

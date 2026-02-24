@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:OpenUtau.App.ViewModels"
+             xmlns:c="using:OpenUtau.Controls"
+             mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="600"
+             x:Class="OpenUtau.App.Views.ProjectSettingsView">
+  <UserControl.Resources>
+    <vm:LinearScaleConverter x:Key="ScaleConverter"/>
+  </UserControl.Resources>
+  <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="4" BoxShadow="0 0 10 2 #40000000">
+    <StackPanel Margin="20" Spacing="10">
+      <TextBlock Text="{DynamicResource pjsettings.caption}" FontSize="20" FontWeight="Bold" Margin="0,0,0,10"/>
+      <!-- ET Mode -->
+      <RadioButton GroupName="TuningMode" Content="{DynamicResource pjsettings.mode.et}" 
+                   IsChecked="{Binding IsET}"/>
+      <StackPanel Margin="20,0,0,0" IsEnabled="{Binding IsET}" Spacing="10">
+        <TextBlock Text="{DynamicResource pjsettings.div}"/>
+        <c:IntEditor Value="{Binding EqualTemperament}"/>
+        <TextBlock Text="{DynamicResource pjsettings.pitch}"/>
+        <c:FloatEditor Value="{Binding ConcertPitch}"/>
+        <TextBlock Text="{DynamicResource pjsettings.note}"/>
+        <c:IntEditor Value="{Binding ConcertPitchNote}"/>
+      </StackPanel>
+  
+      <!-- Tunfile Mode -->
+      <RadioButton GroupName="TuningMode" Content="{DynamicResource pjsettings.mode.tunfile}" 
+                   IsChecked="{Binding IsTunfile}"/>
+      <StackPanel Margin="20,0,0,0" IsEnabled="{Binding IsTunfile}" Spacing="10">
+        <Button Content="{DynamicResource pjsettings.importtun}" Click="ImportTunClicked"/>
+        <TextBlock Text="{Binding OctaveLengthDescription}"/>
+        <Border Width="300" HorizontalAlignment="Left" Height="10" 
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+                BorderThickness="0,0,0,1">
+            <ItemsControl ItemsSource="{Binding OctaveDots}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Canvas Width="300" Height="10"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.Styles>
+                    <Style Selector="ContentPresenter">
+                        <Setter Property="Canvas.Left" Value="{Binding Path=., Converter={StaticResource ScaleConverter}, ConverterParameter=300}"/>
+                    </Style>
+                </ItemsControl.Styles>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Ellipse Width="4" Height="4" Margin="-2,3,0,0" 
+                                 Fill="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+      </StackPanel>
+      
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
+        <Button Content="{DynamicResource pjsettings.cancel}" Click="CancelClicked"/>
+        <Button Content="{DynamicResource pjsettings.apply}" Click="OkClicked" Classes="accent"/>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

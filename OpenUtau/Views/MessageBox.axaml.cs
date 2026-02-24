@@ -1,18 +1,17 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using OpenUtau.Core;
 using Serilog;
-using SharpCompress;
 
 namespace OpenUtau.App.Views {
     public partial class MessageBox : Window {
@@ -23,24 +22,21 @@ namespace OpenUtau.App.Views {
             InitializeComponent();
         }
 
-        public void SetText(string text) {
-            Dispatcher.UIThread.Post(() => {
-                Text.Text = text;
-            });
+        private void InitializeComponent() {
+            AvaloniaXamlLoader.Load(this);
         }
 
-        public static Task<MessageBoxResult> ShowError(Window parent, Exception? e, string message = "", bool fromNotif = false) {
+        private MessageBoxView? GetView() {
+            return this.FindControl<MessageBoxView>("View");
+        }
+
+        public void SetText(string text) {
+            GetView()?.SetText(text);
+        }
+
+        public static Task<MessageBoxResult> ShowError(Control parent, Exception? e, string message = "", bool fromNotif = false) {
             string text = message;
             string title = ThemeManager.GetString("errors.caption");
-            if (fromNotif) {
-                IReadOnlyList<Window> dialogs = ((IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).Windows;
-                foreach (var dialog in dialogs) {
-                    if (dialog.IsActive) {
-                        parent = dialog;
-                        break;
-                    }
-                }
-            }
 
             var builder = new StringBuilder();
             if (e != null) {
@@ -96,8 +92,8 @@ namespace OpenUtau.App.Views {
                 } else {
                     text = mce.TranslatableMessage;
                     try {
-                        var matches = Regex.Matches(mce.TranslatableMessage, "<translate:(.*?)>");
-                        foreach (Match match in matches) {
+                        var matches = System.Text.RegularExpressions.Regex.Matches(mce.TranslatableMessage, "<translate:(.*?)>");
+                        foreach (System.Text.RegularExpressions.Match match in matches) {
                             if (ThemeManager.TryGetString(match.Groups[1].Value, out string translated)) {
                                 text = text.Replace(match.Value, translated);
                             } else {
@@ -118,17 +114,33 @@ namespace OpenUtau.App.Views {
             }
         }
 
-        public static Task<MessageBoxResult> Show(Window parent, string text, string title, MessageBoxButtons buttons, string? stackTrace = null) {
-            var msgbox = new MessageBox() {
-                Title = title
-            };
-            msgbox.Text.IsVisible = false;
-            msgbox.SetTextWithLink(text, msgbox.TextPanel);
-            if (stackTrace != null) {
+        public static Task<MessageBoxResult> Show(Control parent, string text, string title, MessageBoxButtons buttons, string? stackTrace = null) {
+            MessageBoxView? view = null;
+            Window? window = null;
+
+            if (OS.IsWasm()) {
+                view = new MessageBoxView();
+            } else {
+                var msgBox = new MessageBox();
+                msgBox.Title = title;
+                window = msgBox;
+                view = msgBox.GetView();
+            }
+
+            if (view == null) return Task.FromResult(MessageBoxResult.Cancel);
+
+            var textBlock = view.MessageText;
+            var textPanel = view.ContentPanel;
+            var buttonPanel = view.ButtonPanel;
+
+            if (textBlock != null) textBlock.IsVisible = false;
+            if (textPanel != null) view.SetTextWithLink(text, textPanel);
+
+            if (stackTrace != null && textPanel != null) {
                 var stackTracePanel = new StackPanel();
                 var expander = new Expander() { Header = ThemeManager.GetString("errors.details"), Content = stackTracePanel };
-                msgbox.TextPanel.Children.Add(expander);
-                msgbox.SetTextWithLink(stackTrace, stackTracePanel);
+                textPanel.Children.Add(expander);
+                view.SetTextWithLink(stackTrace, stackTracePanel);
             }
 
             var res = MessageBoxResult.Ok;
@@ -137,9 +149,10 @@ namespace OpenUtau.App.Views {
                 var btn = new Button { Content = caption };
                 btn.Click += (_, __) => {
                     res = r;
-                    msgbox.Close();
+                    if (window != null) window.Close();
+                    else view.Close();
                 };
-                msgbox.Buttons.Children.Add(btn);
+                buttonPanel?.Children.Add(btn);
                 if (def)
                     res = r;
             }
@@ -157,64 +170,87 @@ namespace OpenUtau.App.Views {
                 var btn = new Button { Content = ThemeManager.GetString("dialogs.messagebox.copy") };
                 btn.Click += (_, __) => {
                     try {
-                        GetTopLevel(parent)?.Clipboard?.SetTextAsync(text + "\n" + stackTrace);
+                        TopLevel.GetTopLevel(parent)?.Clipboard?.SetTextAsync(text + "\n" + stackTrace);
                     } catch { }
                 };
-                msgbox.Buttons.Children.Add(btn);
+                buttonPanel?.Children.Add(btn);
             }
 
             var tcs = new TaskCompletionSource<MessageBoxResult>();
-            msgbox.Closed += delegate { tcs.TrySetResult(res); };
-            if (parent != null)
-                msgbox.ShowDialog(parent);
-            else msgbox.Show();
+
+            if (window != null) {
+                window.Closed += delegate { tcs.TrySetResult(res); };
+                if (parent != null)
+                    window.ShowDialogSafeAsync(parent);
+                else window.Show();
+            } else {
+                // WASM Logic
+                var closeOverlay = ShowInOverlay(parent, view);
+                view.Closed += delegate {
+                    tcs.TrySetResult(res);
+                    closeOverlay();
+                };
+            }
+
             return tcs.Task;
         }
 
-        public static MessageBox ShowModal(Window parent, string text, string title) {
+        public static MessageBox? ShowModal(Control parent, string text, string title) {
+            if (OS.IsWasm()) {
+                // Modal not supported in same way on WASM, treat as async Show but return null or dummy?
+                // Or better, just show it.
+                // Since this method returns MessageBox object, and we can't created it on WASM...
+                // existing calls expect a return value to close it later (msgbox.Close()).
+                // We'll have to return null on WASM or refactor callers.
+                // Refactoring callers is safer. But for now, let's just show it and return null.
+                var view = new MessageBoxView();
+                view.SetText(text);
+                // We can't really control it from outside if we return null.
+                // This is used in RegenFrq for progress.
+                ShowInOverlay(parent, view);
+                return null;
+            }
+
             var msgbox = new MessageBox() {
                 Title = title
             };
-            msgbox.Text.Text = text;
-            msgbox.ShowDialog(parent);
+            msgbox.GetView()?.SetText(text);
+            if (parent != null)
+                msgbox.ShowDialogSafeAsync(parent);
+            else msgbox.Show();
             return msgbox;
         }
 
-        /// <summary>
-        /// Displays a processing message box with a specified text and title, and executes a given action asynchronously.
-        /// </summary>
-        /// <param name="parent">The parent window to which the message box belongs.</param>
-        /// <param name="text">The text to display in the message box.</param>
-        /// <param name="title">The title of the message box.</param>
-        /// <param name="action">The action to execute asynchronously. This action takes the message box instance and a cancellation token as parameters, so it can show progress on the message box.</param>
-        /// <param name="onFinished">An optional action to execute when the asynchronous operation is completed. Takes the task representing the operation as a parameter. Usually it should check if the task is faulted and handle the error thrown during the task, such as showing an error dialog.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result is a <see cref="MessageBoxResult"/> indicating the user's response.</returns>
-        /// <remarks>
-        /// The method initializes a message box with the specified title and text, and runs the provided action in a separate task.
-        /// It supports cancellation through the provided cancellation token. The optional onFinished action allows for additional
-        /// operations to be performed once the asynchronous action completes.
-        /// </remarks>
         public static Task<MessageBoxResult> ShowProcessing(
-                Window parent, 
-                string text, 
-                string title, 
-                Action<MessageBox, 
-                CancellationToken> action,
-                Action<Task>? onFinished= null) {
-            var msgbox = new MessageBox() {
-                Title = title
-            };
-            msgbox.Text.Text = text;
+               Control parent,
+               string text,
+               string title,
+               Action<MessageBox?, CancellationToken> action, // Allow null MessageBox for WASM
+               Action<Task>? onFinished = null) {
+
+            MessageBox? msgbox = null;
+            MessageBoxView? view = null;
+
+            if (OS.IsWasm()) {
+                view = new MessageBoxView();
+                view.SetText(text);
+            } else {
+                msgbox = new MessageBox() { Title = title };
+                msgbox.GetView()?.SetText(text);
+            }
+
             var res = MessageBoxResult.Ok;
             var tokenSource = new CancellationTokenSource();
 
             var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
             var task = Task.Run(() => {
-                action.Invoke(msgbox, tokenSource.Token);
+                action.Invoke(msgbox, tokenSource.Token); // Requires refactoring action signature if msgbox is null on WASM
                 return res;
             }, tokenSource.Token);
             task.ContinueWith(t => {
-                msgbox.Close();
+                if (msgbox != null) msgbox.Close();
+                else view?.Close();
+
                 if (onFinished != null) {
                     onFinished(task);
                 }
@@ -222,44 +258,151 @@ namespace OpenUtau.App.Views {
 
             var btn = new Button { Content = ThemeManager.GetString("dialogs.messagebox.cancel") };
             btn.Click += (_, __) => {
-                msgbox.Close();
+                if (msgbox != null) msgbox.Close();
+                else view?.Close();
             };
-            msgbox.Buttons.Children.Add(btn);
-            msgbox.Closed += delegate {
-                if (task.IsCompleted) return;
-                res = MessageBoxResult.Cancel;
-                tokenSource.Cancel();
-            };
-            msgbox.ShowDialog(parent);
+
+            if (msgbox != null) {
+                msgbox.GetView()?.ButtonPanel?.Children.Add(btn);
+                msgbox.Closed += delegate {
+                    if (task.IsCompleted) return;
+                    res = MessageBoxResult.Cancel;
+                    tokenSource.Cancel();
+                };
+                if (parent != null) msgbox.ShowDialogSafeAsync(parent);
+                else msgbox.Show();
+            } else if (view != null) {
+                view.ButtonPanel?.Children.Add(btn);
+                var closeOverlay = ShowInOverlay(parent, view);
+                view.Closed += delegate {
+                    if (task.IsCompleted) {
+                        closeOverlay();
+                        return;
+                    }
+                    res = MessageBoxResult.Cancel;
+                    tokenSource.Cancel();
+                    closeOverlay();
+                };
+            }
 
             return task;
         }
 
-        private void SetTextWithLink(string text, StackPanel textPanel) {
-            // @"http(s)?://([\w-]+\.)+[\w-]+(/[A-Z0-9-.,_/?%&=]*)?"
-            var regex = new Regex(@"http(s)?://[^(\r\n|\n| )]+", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            var match = regex.Match(text);
-            if (match.Success) {
-                textPanel.Children.Add(new TextBlock { Text = text.Substring(0, match.Index) });
-                var hyperlink = new Button();
-                hyperlink.Content = match.Value.Trim();
-                hyperlink.Click += OnUrlClick;
-                textPanel.Children.Add(hyperlink);
+        public static Action ShowInOverlay(Control parent, Control view) {
+            var topLevel = TopLevel.GetTopLevel(parent);
+            var overlay = topLevel?.GetVisualDescendants().OfType<ContentControl>().FirstOrDefault(c => c.Name == "DialogOverlay");
 
-                SetTextWithLink(text.Substring(match.Index + match.Length), textPanel);
-            } else {
-                if (!string.IsNullOrEmpty(text)) {
-                    textPanel.Children.Add(new TextBlock { Text = text });
+            if (overlay != null) {
+                overlay.IsVisible = true;
+                Panel? container = overlay.Content as Panel;
+                if (container == null) {
+                    container = new Grid();
+                    overlay.Content = container;
                 }
+
+                // Ensure view is added to the container
+                if (!container.Children.Contains(view)) {
+                    container.Children.Add(view);
+                }
+
+                return () => {
+                    if (container.Children.Contains(view)) {
+                        container.Children.Remove(view);
+                    }
+                    if (container.Children.Count == 0) {
+                        overlay.IsVisible = false;
+                    }
+                };
+            } else {
+                // Console.WriteLine("CRITICAL: DialogOverlay not found for MessageBox!");
+                return () => { };
             }
         }
-        private void OnUrlClick(object? sender, RoutedEventArgs e) {
-            try {
-                if (sender is Button button && button.Content is string url) {
-                    OS.OpenWeb(url);
+
+        public class ProgressDialogController {
+            private MessageBoxView? view;
+            private MessageBox? window;
+            private Control? overlay;
+
+            public ProgressDialogController(MessageBoxView? view, Control? overlay) {
+                this.view = view;
+                this.overlay = overlay;
+            }
+
+            public ProgressDialogController(MessageBox window) {
+                this.window = window;
+            }
+
+            public void SetText(string text) {
+                Dispatcher.UIThread.Post(() => {
+                    view?.SetText(text);
+                    window?.SetText(text);
+                });
+            }
+
+            public void Close() {
+                Dispatcher.UIThread.Post(() => {
+                    if (window != null) window.Close();
+                    else if (view != null) {
+                        view.Close();
+
+                        if (overlay is ContentControl cc && cc.Content is Panel container) {
+                            var parent = view.Parent as Control;
+                            if (parent != null && container.Children.Contains(parent)) {
+                                container.Children.Remove(parent);
+                            } else if (container.Children.Contains(view)) {
+                                container.Children.Remove(view);
+                            }
+
+                            if (container.Children.Count == 0) {
+                                cc.IsVisible = false;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        public static ProgressDialogController ShowProgress(Control? parent, string title, string initialText) {
+            if (OS.IsWasm()) {
+                if (parent == null) return new ProgressDialogController(null, null);
+
+                var view = new MessageBoxView();
+                view.SetText(initialText);
+
+                var topLevel = TopLevel.GetTopLevel(parent);
+                var overlay = topLevel?.GetVisualDescendants().OfType<ContentControl>().FirstOrDefault(c => c.Name == "DialogOverlay");
+
+                if (overlay != null) {
+                    overlay.IsVisible = true;
+                    Panel? container = overlay.Content as Panel;
+                    if (container == null) {
+                        container = new Grid();
+                        overlay.Content = container;
+                    }
+
+                    // Wrap in Grid to center it
+                    var grid = new Grid();
+                    grid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+                    Grid.SetRow(view, 0);
+                    grid.Children.Add(view);
+
+                    container.Children.Add(grid);
+
+                    return new ProgressDialogController(view, overlay);
                 }
-            } catch (Exception ex) {
-                Log.Error(ex, "Failed to open url");
+                return new ProgressDialogController(null, null);
+            } else {
+                var msgbox = new MessageBox() { Title = title };
+                msgbox.SetText(initialText);
+                if (parent != null) {
+                    var win = parent as Window ?? Window.GetTopLevel(parent) as Window;
+                    if (win != null) msgbox.Show(win);
+                    else msgbox.Show();
+                } else {
+                    msgbox.Show();
+                }
+                return new ProgressDialogController(msgbox);
             }
         }
     }

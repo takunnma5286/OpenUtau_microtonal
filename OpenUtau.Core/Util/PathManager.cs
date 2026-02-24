@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -39,6 +39,10 @@ namespace OpenUtau.Core {
                     cacheHome = Path.Combine(userHome, ".cache");
                 }
                 CachePath = Path.Combine(cacheHome, "OpenUtau");
+                HomePathIsAscii = true;
+            } else if (OS.IsWasm()) {
+                DataPath = "/data";
+                CachePath = "/cache";
                 HomePathIsAscii = true;
             } else {
                 string exePath = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);

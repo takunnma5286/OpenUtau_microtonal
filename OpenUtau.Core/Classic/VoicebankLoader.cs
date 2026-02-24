@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -33,6 +33,7 @@ namespace OpenUtau.Classic {
         public const string kDsconfigYaml = "dsconfig.yaml";
         public const string kConfigYaml = "config.yaml";
         public const string kOtoIni = "oto.ini";
+        public const string kOtoTxt = "oto.txt";
 
         readonly string basePath;
 
@@ -40,6 +41,24 @@ namespace OpenUtau.Classic {
 
         public VoicebankLoader(string basePath) {
             this.basePath = basePath;
+        }
+
+        private static string? FindFileCaseInsensitive(string dir, string filename) {
+            if (!Directory.Exists(dir)) {
+                return null;
+            }
+            // Rapid check
+            var exactPath = Path.Combine(dir, filename);
+            if (File.Exists(exactPath)) {
+                return exactPath;
+            }
+            // Slow check
+            try {
+                return Directory.EnumerateFiles(dir).FirstOrDefault(f => Path.GetFileName(f).Equals(filename, StringComparison.OrdinalIgnoreCase));
+            } catch (Exception e) {
+                Log.Error(e, $"Failed to search for {filename} in {dir}");
+                return null;
+            }
         }
 
         public IEnumerable<Voicebank> SearchAll() {
@@ -78,9 +97,13 @@ namespace OpenUtau.Classic {
 
         public static void LoadInfo(Voicebank voicebank, string filePath, string basePath) {
             var dir = Path.GetDirectoryName(filePath);
-            var yamlFile = Path.Combine(dir, kCharYaml);
+            if (dir == null) {
+                Log.Error($"Failed to get directory from {filePath}");
+                return;
+            }
+            var yamlFile = FindFileCaseInsensitive(dir, kCharYaml);
             VoicebankConfig? bankConfig = null;
-            if (File.Exists(yamlFile)) {
+            if (yamlFile != null && File.Exists(yamlFile)) {
                 try {
                     using (var stream = File.OpenRead(yamlFile)) {
                         bankConfig = VoicebankConfig.Load(stream);
@@ -88,6 +111,8 @@ namespace OpenUtau.Classic {
                 } catch (Exception e) {
                     Log.Error(e, $"Failed to load yaml {yamlFile}");
                 }
+            } else {
+                Log.Information($"character.yaml not found in {dir}");
             }
             string singerType = bankConfig?.SingerType ?? string.Empty;
             if (SingerTypeUtils.SingerTypeFromName.ContainsKey(singerType)) {
@@ -226,8 +251,11 @@ namespace OpenUtau.Classic {
 
         public static void LoadPrefixMap(Voicebank voicebank) {
             var dir = Path.GetDirectoryName(voicebank.File);
-            var filePath = Path.Combine(dir, "prefix.map");
-            if (File.Exists(filePath)) {
+            if (dir == null) {
+                return;
+            }
+            var filePath = FindFileCaseInsensitive(dir, "prefix.map");
+            if (filePath != null && File.Exists(filePath)) {
                 LoadMap(voicebank, filePath, string.Empty);
             }
 
@@ -299,8 +327,12 @@ namespace OpenUtau.Classic {
         }
 
         public static void LoadOtoSets(Voicebank voicebank, string dirPath) {
-            var otoFile = Path.Combine(dirPath, kOtoIni);
-            if (File.Exists(otoFile)) {
+            var otoFile = FindFileCaseInsensitive(dirPath, kOtoIni);
+            if (otoFile == null) {
+                otoFile = FindFileCaseInsensitive(dirPath, kOtoTxt);
+            }
+            if (otoFile != null && File.Exists(otoFile)) {
+                Log.Information($"Found oto.ini at {otoFile}");
                 var otoSet = ParseOtoSet(otoFile, voicebank.TextFileEncoding, voicebank.UseFilenameAsAlias);
                 var voicebankDir = Path.GetDirectoryName(voicebank.File);
                 otoSet.Name = Path.GetRelativePath(voicebankDir, dirPath);
@@ -321,8 +353,10 @@ namespace OpenUtau.Classic {
                 if (otoDeclaredEncoding != null) {
                     encoding = otoDeclaredEncoding;
                 }
+                Log.Information($"Parsing {filePath} with encoding {encoding.EncodingName}");
                 using (var stream = File.OpenRead(filePath)) {
                     var otoSet = ParseOtoSet(stream, filePath, encoding);
+                    Log.Information($"Parsed {otoSet.Otos.Count} otos from {filePath}");
                     if (!IsTest) {
                         CheckWavExist(otoSet);
                     }

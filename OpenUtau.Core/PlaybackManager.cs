@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -90,7 +90,7 @@ namespace OpenUtau.Core {
 
         private readonly object _lockObj = new object();
 
-        public ToneGenerator() {}
+        public ToneGenerator() { }
 
         public ToneGenerator(float gain) {
             this.gain = gain;
@@ -184,7 +184,7 @@ namespace OpenUtau.Core {
         List<Fader> faders;
         MasterAdapter masterMix;
         MasterAdapter editingMix;
-        
+
         double startMs;
         public int StartTick => DocManager.Inst.Project.timeAxis.MsPosToTickPos(startMs);
         CancellationTokenSource renderCancellation;
@@ -226,7 +226,7 @@ namespace OpenUtau.Core {
             if (AudioOutput.PlaybackState == PlaybackState.Playing) {
                 AudioOutput.Stop();
             }
-            try{
+            try {
                 var playSound = Wave.OpenFile(file);
                 AudioOutput.Init(playSound.ToSampleProvider());
             } catch (Exception ex) {
@@ -234,7 +234,7 @@ namespace OpenUtau.Core {
                 return;
             }
             AudioOutput.Play();
-        } 
+        }
 
         public void PlayOrPause(int tick = -1, int endTick = -1, int trackNo = -1) {
             if (PlayingMaster) {
@@ -249,6 +249,7 @@ namespace OpenUtau.Core {
         }
 
         public void Play(UProject project, int tick, int endTick = -1, int trackNo = -1) {
+            // Console.WriteLine($"[PlaybackManager] Play called. tick={tick}, state={AudioOutput.PlaybackState}");
             if (AudioOutput.PlaybackState == PlaybackState.Paused) {
                 PlayingMaster = true;
                 AudioOutput.Play();
@@ -275,6 +276,7 @@ namespace OpenUtau.Core {
             this.startMs = startMs;
             var start = TimeSpan.FromMilliseconds(startMs);
             Log.Information($"StartPlayback at {start}");
+            // Console.WriteLine($"[PlaybackManager] StartPlayback at {start}");
             masterMix = masterAdapter;
             AudioOutput.Stop();
             AudioOutput.Init(masterMix);
@@ -282,28 +284,33 @@ namespace OpenUtau.Core {
         }
 
         private void Render(UProject project, int tick, int endTick, int trackNo) {
-            Task.Run(() => {
-                try {
-                    RenderEngine engine = new RenderEngine(project, startTick: tick, endTick: endTick, trackNo: trackNo);
-                    var result = engine.RenderProject(DocManager.Inst.MainScheduler, ref renderCancellation);
-                    if (result.Item1.IsPlayable()) {
-                        faders = result.Item2;
-                        StartPlayback(project.timeAxis.TickPosToMsPos(tick), result.Item1);
-                        PlayingMaster = true;
-                    }
-                    StartingToPlay = false;
-                } catch (Exception e) {
-                    Log.Error(e, "Failed to render.");
-                    StopPlayback();
-                    var customEx = new MessageCustomizableException("Failed to render.", "<translate:errors.failed.render>", e);
-                    DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(customEx));
+            // Console.WriteLine($"[PlaybackManager] Render starting... tick={tick}");
+            // Task.Run(() => {
+            try {
+                // Console.WriteLine("[PlaybackManager] Initializing RenderEngine...");
+                RenderEngine engine = new RenderEngine(project, startTick: tick, endTick: endTick, trackNo: trackNo);
+                // Console.WriteLine("[PlaybackManager] RenderEngine.RenderProject calling...");
+                var result = engine.RenderProject(DocManager.Inst.MainScheduler, ref renderCancellation);
+                // Console.WriteLine($"[PlaybackManager] RenderProject returned. IsPlayable={result.Item1.IsPlayable()}");
+                if (result.Item1.IsPlayable()) {
+                    faders = result.Item2;
+                    StartPlayback(project.timeAxis.TickPosToMsPos(tick), result.Item1);
+                    PlayingMaster = true;
                 }
-            });
+                StartingToPlay = false;
+            } catch (Exception e) {
+                Log.Error(e, "Failed to render.");
+                // Console.WriteLine($"[PlaybackManager] Failed to render: {e}");
+                StopPlayback();
+                var customEx = new MessageCustomizableException("Failed to render.", "<translate:errors.failed.render>", e);
+                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(customEx));
+            }
+            // });
         }
 
         public void UpdatePlayPos() {
             if (AudioOutput != null && AudioOutput.PlaybackState == PlaybackState.Playing && PlayingMaster) {
-                double ms = (AudioOutput.GetPosition() / sizeof(float) - masterMix.Waited / 2) * 1000.0 / 44100;
+                double ms = (AudioOutput.GetPosition() / sizeof(float) - masterMix.Waited) / 2.0 * 1000.0 / 44100;
                 int tick = DocManager.Inst.Project.timeAxis.MsPosToTickPos(startMs + ms);
                 DocManager.Inst.ExecuteCmd(new SetPlayPosTickNotification(tick, masterMix.IsWaiting));
             }

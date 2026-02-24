@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -63,31 +63,39 @@ namespace OpenUtau.App.ViewModels {
         }
 
         public NoteHitInfo HitTestNote(Point point) {
-            if (viewModel.Part == null) {
-                return default;
-            }
-            NoteHitInfo result = default;
-            int tick = viewModel.PointToTick(point);
-            foreach (UNote note in viewModel.Part.notes) {
-                if (note.position > tick || note.End < tick) {
-                    continue;
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try {
+                if (viewModel.Part == null) {
+                    return default;
                 }
-                result.note = note;
-                result.hitX = true;
-                var tone = viewModel.PointToToneDouble(point);
-                if (tone > note.AdjustedTone + 0.5 || tone < note.AdjustedTone - 0.5) {
-                    continue;
+                NoteHitInfo result = default;
+                int tick = viewModel.PointToTick(point);
+                foreach (UNote note in viewModel.Part.notes) {
+                    if (note.position > tick || note.End < tick) {
+                        continue;
+                    }
+                    result.note = note;
+                    result.hitX = true;
+                    var tone = viewModel.PointToToneDouble(point);
+                    if (tone > note.AdjustedTone + 0.5 || tone < note.AdjustedTone - 0.5) {
+                        continue;
+                    }
+                    result.hitBody = true;
+                    double x1 = viewModel.TickToneToPoint(note.position, note.AdjustedTone).X;
+                    double x2 = viewModel.TickToneToPoint(note.End, tone).X;
+                    var hitLeftResizeArea = point.X >= x1 && point.X < x1 + ViewConstants.ResizeMargin;
+                    var hitRightResizeArea = point.X <= x2 && point.X > x2 - ViewConstants.ResizeMargin;
+                    result.hitResizeAreaFromStart = hitLeftResizeArea && !hitRightResizeArea;  // prefer resizing from end
+                    result.hitResizeArea = hitLeftResizeArea || hitRightResizeArea;  // hit either of the areas
+                    break;
                 }
-                result.hitBody = true;
-                double x1 = viewModel.TickToneToPoint(note.position, note.AdjustedTone).X;
-                double x2 = viewModel.TickToneToPoint(note.End, tone).X;
-                var hitLeftResizeArea = point.X >= x1 && point.X < x1 + ViewConstants.ResizeMargin;
-                var hitRightResizeArea = point.X <= x2 && point.X > x2 - ViewConstants.ResizeMargin;
-                result.hitResizeAreaFromStart = hitLeftResizeArea && !hitRightResizeArea;  // prefer resizing from end
-                result.hitResizeArea = hitLeftResizeArea || hitRightResizeArea;  // hit either of the areas
-                break;
+                return result;
+            } finally {
+                stopwatch.Stop();
+                if (stopwatch.Elapsed.TotalMilliseconds > 1.0) {
+                    System.Console.WriteLine($"[HitTestPerf] HitTestNote: {stopwatch.Elapsed.TotalMilliseconds:F3}ms");
+                }
             }
-            return result;
         }
 
         public NoteHitInfo HitTestExp(Point point) {
@@ -143,62 +151,70 @@ namespace OpenUtau.App.ViewModels {
         }
 
         public PitchPointHitInfo HitTestPitchPoint(Point point) {
-            if (viewModel.Part == null || !viewModel.ShowPitch) {
-                return default;
-            }
-            double leftTick = viewModel.TickOffset - 480;
-            double rightTick = leftTick + viewModel.ViewportTicks + 480;
-            foreach (var note in viewModel.Part.notes) {
-                if (note.LeftBound >= rightTick || note.RightBound <= leftTick || note.Error) {
-                    continue;
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try {
+                if (viewModel.Part == null || !viewModel.ShowPitch) {
+                    return default;
                 }
-                if (Preferences.Default.LockUnselectedNotesPitch && viewModel.Selection.Count > 0 && !viewModel.Selection.Contains(note)) {
-                    continue;
-                }
-                double lastX = 0, lastY = 0;
-                PitchPointShape lastShape = PitchPointShape.l;
-                for (int i = 0; i < note.pitch.data.Count; i++) {
-                    var pit = note.pitch.data[i];
-                    int posTick = viewModel.Project.timeAxis.MsPosToTickPos(note.PositionMs + pit.X) - viewModel.Part.position;
-                    double tone = note.AdjustedTone + pit.Y / 10;
-                    var pitPoint = viewModel.TickToneToPoint(posTick, tone);
-                    double x = pitPoint.X;
-                    double y = pitPoint.Y + viewModel.TrackHeight / 2;
-                    if (Math.Abs(point.X - x) < 4 && Math.Abs(point.Y - y) < 4)
-                        return new PitchPointHitInfo() {
-                            Note = note,
-                            Index = i,
-                            OnPoint = true,
-                        };
-                    else if (point.X < x && i > 0 && point.X > lastX) {
-                        // Hit test curve
-                        double castY = MusicMath.InterpolateShape(lastX, x, lastY, y, point.X, lastShape) - point.Y;
-                        if (y >= lastY) {
-                            if (point.Y - y > 3 || lastY - point.Y > 3) break;
-                        } else {
-                            if (y - point.Y > 3 || point.Y - lastY > 3) break;
-                        }
-                        double castX = MusicMath.InterpolateShapeX(lastX, x, lastY, y, point.Y, lastShape) - point.X;
-                        double dis = double.IsNaN(castX) ? Math.Abs(castY) : Math.Cos(Math.Atan2(Math.Abs(castY), Math.Abs(castX))) * Math.Abs(castY);
-                        if (dis < 3) {
-                            var timeAxis = viewModel.Project.timeAxis;
-                            double msX = timeAxis.TickPosToMsPos(viewModel.PointToTick(point) + viewModel.Part.position) - note.PositionMs;
-                            double decCentY = (viewModel.PointToToneDouble(point) - note.AdjustedTone) * 10;
+                double leftTick = viewModel.TickOffset - 480;
+                double rightTick = leftTick + viewModel.ViewportTicks + 480;
+                foreach (var note in viewModel.Part.notes) {
+                    if (note.LeftBound >= rightTick || note.RightBound <= leftTick || note.Error) {
+                        continue;
+                    }
+                    if (Preferences.Default.LockUnselectedNotesPitch && viewModel.Selection.Count > 0 && !viewModel.Selection.Contains(note)) {
+                        continue;
+                    }
+                    double lastX = 0, lastY = 0;
+                    PitchPointShape lastShape = PitchPointShape.l;
+                    for (int i = 0; i < note.pitch.data.Count; i++) {
+                        var pit = note.pitch.data[i];
+                        int posTick = viewModel.Project.timeAxis.MsPosToTickPos(note.PositionMs + pit.X) - viewModel.Part.position;
+                        double tone = note.AdjustedTone + pit.Y / 10;
+                        var pitPoint = viewModel.TickToneToPoint(posTick, tone);
+                        double x = pitPoint.X;
+                        double y = pitPoint.Y + viewModel.TrackHeight / 2;
+                        if (Math.Abs(point.X - x) < 4 && Math.Abs(point.Y - y) < 4)
                             return new PitchPointHitInfo() {
                                 Note = note,
-                                Index = i - 1,
-                                OnPoint = false,
-                                X = (float)msX,
-                                Y = (float)decCentY,
+                                Index = i,
+                                OnPoint = true,
                             };
-                        } else break;
+                        else if (point.X < x && i > 0 && point.X > lastX) {
+                            // Hit test curve
+                            double castY = MusicMath.InterpolateShape(lastX, x, lastY, y, point.X, lastShape) - point.Y;
+                            if (y >= lastY) {
+                                if (point.Y - y > 3 || lastY - point.Y > 3) break;
+                            } else {
+                                if (y - point.Y > 3 || point.Y - lastY > 3) break;
+                            }
+                            double castX = MusicMath.InterpolateShapeX(lastX, x, lastY, y, point.Y, lastShape) - point.X;
+                            double dis = double.IsNaN(castX) ? Math.Abs(castY) : Math.Cos(Math.Atan2(Math.Abs(castY), Math.Abs(castX))) * Math.Abs(castY);
+                            if (dis < 3) {
+                                var timeAxis = viewModel.Project.timeAxis;
+                                double msX = timeAxis.TickPosToMsPos(viewModel.PointToTick(point) + viewModel.Part.position) - note.PositionMs;
+                                double decCentY = (viewModel.PointToToneDouble(point) - note.AdjustedTone) * 10;
+                                return new PitchPointHitInfo() {
+                                    Note = note,
+                                    Index = i - 1,
+                                    OnPoint = false,
+                                    X = (float)msX,
+                                    Y = (float)decCentY,
+                                };
+                            } else break;
+                        }
+                        lastX = x;
+                        lastY = y;
+                        lastShape = pit.shape;
                     }
-                    lastX = x;
-                    lastY = y;
-                    lastShape = pit.shape;
+                }
+                return default;
+            } finally {
+                stopwatch.Stop();
+                if (stopwatch.Elapsed.TotalMilliseconds > 1.0) {
+                    System.Console.WriteLine($"[HitTestPerf] HitTestPitchPoint: {stopwatch.Elapsed.TotalMilliseconds:F3}ms");
                 }
             }
-            return default;
         }
 
         public double? SamplePitch(Point point) {
@@ -376,7 +392,7 @@ namespace OpenUtau.App.ViewModels {
                 if (string.IsNullOrEmpty(phonemeText)) {
                     continue;
                 }
-                (double textX, double textY, Size size, TextLayout textLayout) 
+                (double textX, double textY, Size size, TextLayout textLayout)
                     = PhonemeUIRender.AliasPosition(viewModel, phoneme, langCode, ref lastTextEndX, ref raiseText);
                 var rect = new Rect(new Point(textX - 2, textY + 1.5), size);
                 if (rect.Contains(mousePos)) {

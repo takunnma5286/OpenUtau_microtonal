@@ -4,17 +4,17 @@
 #include <string>
 #include <vector>
 
-#include "world/constantnumbers.h"
-#include "world/dio.h"
-#include "worldline/classic/frq.h"
+#include "../../third_party/world/src/world/constantnumbers.h"
+#include "../../third_party/world/src/world/dio.h"
+#include "../classic/frq.h"
 
 extern "C" {
-#include "pyin.h"
+#include "../../third_party/libpyin/pyin.h"
 }
 
 namespace worldline {
 
-static double avg_f0(double* data, int count) {
+static double avg_f0(double *data, int count) {
   int non_zeros = 0;
   double sum = 0;
   for (int i = 0; i < count; ++i) {
@@ -29,13 +29,13 @@ static double avg_f0(double* data, int count) {
   return sum / non_zeros;
 }
 
-FrqEstimator::FrqEstimator(const std::string_view frq_data) {
+FrqEstimator::FrqEstimator(const std::string &frq_data) {
   frq_data_ = LoadFrq(frq_data);
 }
 
-void FrqEstimator::Estimate(const std::vector<double>& samples, int fs,
-                            double frame_ms, std::vector<double>* f0,
-                            std::vector<double>* time_axis) {
+void FrqEstimator::Estimate(const std::vector<double> &samples, int fs,
+                            double frame_ms, std::vector<double> *f0,
+                            std::vector<double> *time_axis) {
   int f0_len = GetSamplesForDIO(fs, samples.size(), frame_ms);
   *f0 = std::vector<double>(f0_len);
   *time_axis = std::vector<double>(f0_len);
@@ -51,4 +51,4 @@ void FrqEstimator::Estimate(const std::vector<double>& samples, int fs,
   }
 }
 
-}  // namespace worldline
+} // namespace worldline

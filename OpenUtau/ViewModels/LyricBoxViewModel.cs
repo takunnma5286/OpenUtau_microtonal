@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -53,26 +53,26 @@ namespace OpenUtau.App.ViewModels {
                 });
                 return;
             }
-            var scheduler = TaskScheduler.FromCurrentSynchronizationContext();
             Task.Run(() => singer.GetSuggestions(Text ?? "").Select(oto => new SuggestionItem() {
                 Alias = oto.Alias,
                 Source = string.IsNullOrEmpty(oto.Set) ? singer.Id : $"{oto.Set}",
             }).Take(32).ToList()).ContinueWith(task => {
-                Suggestions.Clear();
-                if (!string.IsNullOrEmpty(Text) && Core.Util.ActiveLyricsHelper.Inst.Current != null) {
-                    string text = Core.Util.ActiveLyricsHelper.Inst.Current.Convert(Text);
-                    if (Core.Util.Preferences.Default.LyricsHelperBrackets) {
-                        text = $"[{text}]";
+                if (task.IsFaulted) return;
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    Suggestions.Clear();
+                    if (!string.IsNullOrEmpty(Text) && Core.Util.ActiveLyricsHelper.Inst.Current != null) {
+                        string text = Core.Util.ActiveLyricsHelper.Inst.Current.Convert(Text);
+                        if (Core.Util.Preferences.Default.LyricsHelperBrackets) {
+                            text = $"[{text}]";
+                        }
+                        Suggestions.Add(new SuggestionItem() {
+                            Alias = text,
+                            Source = Core.Util.ActiveLyricsHelper.Inst.Current.Source,
+                        });
                     }
-                    Suggestions.Add(new SuggestionItem() {
-                        Alias = text,
-                        Source = Core.Util.ActiveLyricsHelper.Inst.Current.Source,
-                    });
-                }
-                if (!task.IsFaulted) {
                     Suggestions.AddRange(task.Result);
-                }
-            }, scheduler);
+                });
+            });
         }
 
         public void Commit() {

@@ -3,13 +3,14 @@
 #include <cmath>
 #include <vector>
 
-#include "world/constantnumbers.h"
-#include "world/harvest.h"
-#include "worldline/f0/f0_estimator.h"
+#include "../../third_party/world/src/world/constantnumbers.h"
+#include "../../third_party/world/src/world/harvest.h"
+#include "f0_estimator.h"
+
 
 namespace worldline {
 
-static double avg_f0(double* data, int count) {
+static double avg_f0(double *data, int count) {
   int non_zeros = 0;
   double sum = 0;
   for (int i = 0; i < count; ++i) {
@@ -24,9 +25,9 @@ static double avg_f0(double* data, int count) {
   return sum / non_zeros;
 }
 
-void HarvestEstimator::Estimate(const std::vector<double>& samples, int fs,
-                                double frame_ms, std::vector<double>* f0,
-                                std::vector<double>* time_axis) {
+void HarvestEstimator::Estimate(const std::vector<double> &samples, int fs,
+                                double frame_ms, std::vector<double> *f0,
+                                std::vector<double> *time_axis) {
   int f0_len = GetSamplesForHarvest(fs, samples.size(), frame_ms);
   *f0 = std::vector<double>(f0_len);
   *time_axis = std::vector<double>(f0_len);
@@ -38,4 +39,4 @@ void HarvestEstimator::Estimate(const std::vector<double>& samples, int fs,
           f0->data());
 }
 
-}  // namespace worldline
+} // namespace worldline

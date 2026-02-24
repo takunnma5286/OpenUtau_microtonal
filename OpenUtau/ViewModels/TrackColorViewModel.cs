@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Linq;
 using OpenUtau.Core;
 using OpenUtau.Core.Ustx;

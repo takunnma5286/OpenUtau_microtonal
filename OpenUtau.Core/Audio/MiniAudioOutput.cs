@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using NAudio.Wave;
@@ -98,7 +98,7 @@ namespace OpenUtau.Audio {
             if (PlaybackState != PlaybackState.Playing) {
                 CheckError(ou_audio_device_start(nativeContext));
             }
-            if (PlaybackState != PlaybackState.Paused) { 
+            if (PlaybackState != PlaybackState.Paused) {
                 currentTimeMs = 0;
             }
             PlaybackState = PlaybackState.Playing;
@@ -205,6 +205,9 @@ namespace OpenUtau.Audio {
         [UnmanagedFunctionPointer(callingConvention: CallingConvention.Cdecl)]
         private unsafe delegate void ou_audio_data_callback_t(float* buffer, uint channels, uint frame_count);
 
+        // TODO: Audio output not supported in WASM build yet
+        // These will need JSImport implementation
+        /*
         [DllImport("worldline")] private static extern unsafe int ou_get_audio_device_infos(ou_audio_device_info_t* device_infos, int max_count);
         [DllImport("worldline")] private static extern unsafe void ou_free_audio_device_infos(ou_audio_device_info_t* device_infos, int count);
         [DllImport("worldline")] private static extern IntPtr ou_init_audio_device(uint api_id, ulong id, IntPtr callback);
@@ -212,13 +215,42 @@ namespace OpenUtau.Audio {
         [DllImport("worldline")] private static extern int ou_audio_device_start(IntPtr context);
         [DllImport("worldline")] private static extern int ou_audio_device_stop(IntPtr context);
         [DllImport("worldline")] private static extern IntPtr ou_audio_get_error_message(int error_code);
+        */
+
+        // Stub implementations for WASM (audio not supported in browser)
+        private static unsafe int ou_get_audio_device_infos(ou_audio_device_info_t* device_infos, int max_count) {
+            return 0; // No devices in WASM
+        }
+
+        private static unsafe void ou_free_audio_device_infos(ou_audio_device_info_t* device_infos, int count) {
+            // No-op
+        }
+
+        private static IntPtr ou_init_audio_device(uint api_id, ulong id, IntPtr callback) {
+            return IntPtr.Zero;
+        }
+
+        private static int ou_free_audio_device(IntPtr context) {
+            return 0;
+        }
+
+        private static int ou_audio_device_start(IntPtr context) {
+            return 0;
+        }
+
+        private static int ou_audio_device_stop(IntPtr context) {
+            return 0;
+        }
+
+        private static IntPtr ou_audio_get_error_message(int error_code) {
+            return IntPtr.Zero;
+        }
 
         private static void CheckError(int errorCode) {
             if (errorCode == 0) {
                 return;
             }
-            IntPtr ptr = ou_audio_get_error_message(errorCode);
-            throw new Exception(Marshal.PtrToStringUTF8(ptr));
+            throw new Exception($"Audio error code: {errorCode}");
         }
 
         #endregion

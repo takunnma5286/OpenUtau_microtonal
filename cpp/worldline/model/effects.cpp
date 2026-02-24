@@ -2,20 +2,26 @@
 
 #include <cmath>
 #include <iostream>
-#include <numeric>
 #include <vector>
 
-#include "spline.h"
+#include "../../third_party/spline/src/spline.h"
+#include "../../third_party/world/src/world/common.h"
+#include "../../third_party/world/src/world/matlabfunctions.h"
+
 
 namespace worldline {
 
-static void GenderWeights(std::vector<int>& indexes,
-                          std::vector<double>& weights, int width,
+template <typename T> T Clamp(T v, T lo, T hi) {
+  return std::min(hi, std::max(lo, v));
+}
+
+static void GenderWeights(std::vector<int> &indexes,
+                          std::vector<double> &weights, int width,
                           double ratio) {
   for (int i = 0; i < width; ++i) {
     double p = i * ratio;
-    int i1 = std::clamp(static_cast<int>(std::floor(p)), 0, width - 1);
-    int i2 = std::clamp(static_cast<int>(std::ceil(p)), 0, width - 1);
+    int i1 = Clamp(static_cast<int>(std::floor(p)), 0, width - 1);
+    int i2 = Clamp(static_cast<int>(std::ceil(p)), 0, width - 1);
     if (i1 == i2) {
       if (i1 == 0) {
         indexes[i] = i1 + 1;
@@ -26,14 +32,14 @@ static void GenderWeights(std::vector<int>& indexes,
       }
     } else {
       double p = i * ratio;
-      int i1 = std::clamp(static_cast<int>(std::floor(p)), 0, width - 1);
+      int i1 = Clamp(static_cast<int>(std::floor(p)), 0, width - 1);
       indexes[i] = i1;
       weights[i] = p - std::floor(p);
     }
   }
 }
 
-void ShiftGender(std::vector<std::vector<double>>& sp, int value) {
+void ShiftGender(std::vector<std::vector<double>> &sp, int value) {
   double ratio = std::pow(2, value * 0.01);
   if (ratio == 1 || ratio <= 0) {
     return;
@@ -42,7 +48,7 @@ void ShiftGender(std::vector<std::vector<double>>& sp, int value) {
   std::vector<int> indexes(width);
   std::vector<double> weights(width);
   GenderWeights(indexes, weights, width, ratio);
-  for (auto& frame : sp) {
+  for (auto &frame : sp) {
     std::vector<double> buffer = frame;
     for (int i = 0; i < width; ++i) {
       int i1 = indexes[i] - 1;
@@ -52,7 +58,7 @@ void ShiftGender(std::vector<std::vector<double>>& sp, int value) {
   }
 }
 
-void ShiftGender(double* sp, int width, int value) {
+void ShiftGender(double *sp, int width, int value) {
   double ratio = std::pow(2, value * 0.01);
   if (ratio == 1 || ratio <= 0) {
     return;
@@ -69,7 +75,7 @@ void ShiftGender(double* sp, int width, int value) {
   }
 }
 
-static void Logspace(std::vector<double>& vec, int i0, int i1, double power,
+static void Logspace(std::vector<double> &vec, int i0, int i1, double power,
                      double v0, double v1) {
   double delta = (v1 - v0) / (i1 - i0);
   double v = v0;
@@ -134,7 +140,7 @@ std::vector<double> GetTensionCoefficients(double f0, int fs, int value,
   return envelope;
 }
 
-void AutoGain(std::vector<double>& samples, double src_max, double out_max,
+void AutoGain(std::vector<double> &samples, double src_max, double out_max,
               double voiced_ratio, int volume, int peakComp) {
   // weighs between max of full audio file and max of synthed section
   // based on voiced ratio of synthed section
@@ -150,4 +156,4 @@ void AutoGain(std::vector<double>& samples, double src_max, double out_max,
   }
 }
 
-}  // namespace worldline
+} // namespace worldline

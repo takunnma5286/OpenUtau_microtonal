@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -26,20 +26,47 @@ namespace OpenUtau.Core {
         }
 
         public void SearchAllSingers() {
+            // Console.WriteLine("[SingerManager] SearchAllSingers called.");
             Log.Information("Searching singers.");
             Directory.CreateDirectory(PathManager.Inst.SingersPath);
-            var stopWatch = Stopwatch.StartNew();
-            var singers = ClassicSingerLoader.FindAllSingers()
-                .Concat(Vogen.VogenSingerLoader.FindAllSingers())
-                .Distinct();
-            Singers = singers
-                .ToLookup(s => s.Id)
-                .ToDictionary(g => g.Key, g => g.First());
-            SingerGroups = singers
-                .GroupBy(s => s.SingerType)
-                .ToDictionary(s => s.Key, s => s.LocalizedOrderBy(singer => singer.LocalizedName).ToList());
-            stopWatch.Stop();
-            Log.Information($"Search all singers: {stopWatch.Elapsed}");
+            try {
+                var stopWatch = Stopwatch.StartNew();
+                Singers = new Dictionary<string, USinger>();
+
+                // Add default singer
+                // Removed non-existent UDefaultSinger usage
+                // var defaultSinger = new UDefaultSinger();
+                // Singers.Add(defaultSinger.Id, defaultSinger);
+                // // Console.WriteLine("[SingerManager] Added default singer.");
+
+                foreach (var path in PathManager.Inst.SingersPaths) {
+                    // Console.WriteLine($"[SingerManager] Searching in path: {path}");
+                    if (!Directory.Exists(path)) {
+                        // Console.WriteLine($"[SingerManager] Path does not exist: {path}");
+                        continue;
+                    }
+                }
+                var singers = ClassicSingerLoader.FindAllSingers()
+                    .Concat(Vogen.VogenSingerLoader.FindAllSingers())
+                    .Distinct();
+
+                foreach (var s in singers) {
+                    // Console.WriteLine($"[SingerManager] Found singer: {s.Id}");
+                    if (!Singers.ContainsKey(s.Id)) {
+                        Singers.Add(s.Id, s);
+                    }
+                }
+
+                SingerGroups = Singers.Values
+                    .GroupBy(s => s.SingerType)
+                    .ToDictionary(s => s.Key, s => s.LocalizedOrderBy(singer => singer.LocalizedName).ToList());
+                stopWatch.Stop();
+                Log.Information($"Search all singers: {stopWatch.Elapsed}");
+                // Console.WriteLine($"[SingerManager] Search finished in {stopWatch.Elapsed}. Total singers: {Singers.Count}");
+            } catch (Exception e) {
+                Log.Error(e, "Failed to search singers.");
+                // Console.WriteLine($"[SingerManager] Failed to search singers: {e}");
+            }
         }
 
         public USinger GetSinger(string name) {

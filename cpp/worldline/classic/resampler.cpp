@@ -10,17 +10,17 @@
 #include <sstream>
 #include <vector>
 
-#include "audioio.h"
+#include "../../third_party/world/src/world/constantnumbers.h"
+#include "../../third_party/world/tools/audioio.h"
+#include "../common/vec_utils.h"
+#include "../f0/f0_estimator.h"
+#include "../f0/frq_estimator.h"
+#include "../f0/pyin_estimator.h"
+#include "../model/effects.h"
+#include "../model/model.h"
+#include "../synth_request.h"
 #include "classic_args.h"
 #include "timing.h"
-#include "world/constantnumbers.h"
-#include "worldline/common/vec_utils.h"
-#include "worldline/f0/f0_estimator.h"
-#include "worldline/f0/frq_estimator.h"
-#include "worldline/f0/pyin_estimator.h"
-#include "worldline/model/effects.h"
-#include "worldline/model/model.h"
-#include "worldline/synth_request.h"
 
 namespace worldline {
 
@@ -35,7 +35,7 @@ Resampler::Resampler(SynthRequest request) : request_(request) {
 
   std::unique_ptr<F0Estimator> f0_estimator = nullptr;
   if (request.frq_length > 0) {
-    std::string_view frq_data(request.frq, request.frq_length);
+    std::string frq_data(request.frq, request.frq_length);
     f0_estimator = std::make_unique<FrqEstimator>(frq_data);
   } else {
     f0_estimator = std::make_unique<PyinEstimator>();
@@ -45,7 +45,7 @@ Resampler::Resampler(SynthRequest request) : request_(request) {
                                    frame_ms, std::move(f0_estimator));
 }
 
-static std::string ReadFrqFile(const std::string& wav_path) {
+static std::string ReadFrqFile(const std::string &wav_path) {
   int last_dot_index = wav_path.find_last_of('.');
   if (last_dot_index <= 0) {
     return "";
@@ -135,9 +135,9 @@ std::vector<double> Resampler::Resample() {
   return samples;
 }
 
-void Resampler::ApplyEffects(std::vector<std::vector<double>>* tension,
-                             std::vector<double>* breathiness,
-                             std::vector<double>* voicing) {
+void Resampler::ApplyEffects(std::vector<std::vector<double>> *tension,
+                             std::vector<double> *breathiness,
+                             std::vector<double> *voicing) {
   if (request_.flag_g != 0) {
     ShiftGender(model_->sp(), request_.flag_g);
   }
@@ -184,10 +184,11 @@ void Resampler::ApplyPitch() {
       pitch = right_pitch;
     }
     double tone = request_.tone + pitch * 0.01;
-    double freq = request_.concert_pitch * std::pow(a, tone - request_.concert_pitch_note);
+    double freq = request_.concert_pitch *
+                  std::pow(a, tone - request_.concert_pitch_note);
     model_->f0()[i] = freq;
     time_ms += model_->frame_ms();
   }
 }
 
-}  // namespace worldline
+} // namespace worldline

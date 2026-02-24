@@ -2,14 +2,14 @@
 
 #include <vector>
 
-#include "world/dio.h"
-#include "world/stonemask.h"
+#include "../../third_party/world/src/world/dio.h"
+#include "../../third_party/world/src/world/stonemask.h"
 
 namespace worldline {
 
-void DioEstimator::Estimate(const std::vector<double>& samples, int fs,
-                            double frame_ms, std::vector<double>* f0,
-                            std::vector<double>* time_axis) {
+void DioEstimator::Estimate(const std::vector<double> &samples, int fs,
+                            double frame_ms, std::vector<double> *f0,
+                            std::vector<double> *time_axis) {
   int f0_len = GetSamplesForDIO(fs, samples.size(), frame_ms);
   *f0 = std::vector<double>(f0_len);
   *time_axis = std::vector<double>(f0_len);
@@ -24,4 +24,4 @@ void DioEstimator::Estimate(const std::vector<double>& samples, int fs,
             raw_f0.data(), f0_len, f0->data());
 }
 
-}  // namespace worldline
+} // namespace worldline

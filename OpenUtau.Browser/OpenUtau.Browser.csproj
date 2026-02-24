@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net8.0-browser</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WasmMainJSPath>wwwroot/AppBundle/main.js</WasmMainJSPath>
+    <OutputType>Exe</OutputType>
+    <WasmBuildNative>true</WasmBuildNative>
+    <WasmMaximumHeapSize>4096MB</WasmMaximumHeapSize>
+    <EmccExtraLDFlags>-lidbfs.js -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS=_fma,_fmaf,_pow,_powf,_sqrt,_sqrtf,_sin,_sinf,_cos,_cosf,_tan,_tanf,_asin,_asinf,_acos,_acosf,_atan,_atanf,_atan2,_atan2f,_log,_logf,_exp,_expf,_sinh,_sinhf,_cosh,_coshf,_tanh,_tanhf,_asinh,_asinhf,_acosh,_acoshf,_atanh,_atanhf,_exp2,_exp2f,_log2,_log2f,_log10,_log10f,_ceil,_ceilf,_floor,_floorf,_round,_roundf,_fmod,_fmodf,_cbrt,_cbrtf,_hypot,_hypotf,_expm1,_expm1f,_log1p,_log1pf,_copysign,_copysignf,_trunc,_truncf,_rint,_rintf,_nearbyint,_nearbyintf,_fabs,_fabsf,_modf,_modff,_ldexp,_ldexpf,_frexp,_frexpf,_malloc,_free -s EXPORTED_RUNTIME_METHODS=ccall,cwrap,stackSave,stackRestore,stackAlloc,UTF8ToString,UTF8ArrayToString,stringToUTF8,setValue,getValue,addFunction,removeFunction,FS,runtimeKeepalivePush,runtimeKeepalivePop,safeSetTimeout,maybeExit -s FORCE_FILESYSTEM=1</EmccExtraLDFlags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" Version="11.2.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.4" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="11.2.4" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.WebAssembly" Version="7.3.0.3" />
+    <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" Version="2.88.9" />
+    <ProjectReference Include="..\OpenUtau\OpenUtau.csproj" />
+    <ProjectReference Include="..\OpenUtau.Plugin.Builtin\OpenUtau.Plugin.Builtin.csproj" />
+    <AvaloniaResource Include="Assets\**" />
+    <!-- Worldline is now loaded as standalone WASM via worldline.js/worldline.wasm + JavaScript Interop Bridge -->
+  </ItemGroup>
+</Project>

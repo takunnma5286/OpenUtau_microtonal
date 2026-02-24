@@ -2,23 +2,28 @@
 
 #include <algorithm>
 #include <memory>
+#include <vector>
 
-#include "world/cheaptrick.h"
-#include "world/constantnumbers.h"
-#include "world/d4c.h"
-#include "world/dio.h"
-#include "world/synthesis.h"
-#include "worldline/common/vec_utils.h"
-#include "worldline/platinum/platinum.h"
-#include "worldline/platinum/synthesisplatinum.h"
+#include "../../third_party/world/src/world/cheaptrick.h"
+#include "../../third_party/world/src/world/codec.h"
+#include "../../third_party/world/src/world/constantnumbers.h"
+#include "../../third_party/world/src/world/d4c.h"
+#include "../../third_party/world/src/world/dio.h"
+#include "../../third_party/world/src/world/harvest.h"
+#include "../../third_party/world/src/world/matlabfunctions.h"
+#include "../../third_party/world/src/world/stonemask.h"
+#include "../../third_party/world/src/world/synthesis.h"
+#include "../common/vec_utils.h"
+#include "../f0/pyin_estimator.h"
+#include "../platinum/platinum.h"
+#include "../platinum/synthesisplatinum.h"
+
 
 namespace worldline {
 
 Model::Model(std::vector<double> samples, int fs, double frame_ms,
              std::unique_ptr<F0Estimator> f0_estimator)
-    : samples_(std::move(samples)),
-      fs_(fs),
-      frame_ms_(frame_ms),
+    : samples_(std::move(samples)), fs_(fs), frame_ms_(frame_ms),
       f0_estimator_(std::move(f0_estimator)) {}
 Model::Model(int fs, double frame_ms, int fft_size)
     : fs_(fs), frame_ms_(frame_ms), fft_size_(fft_size) {}
@@ -32,7 +37,7 @@ void Model::BuildSp() {
   InitializeCheapTrickOption(fs_, &ct_option);
   fft_size_ = ct_option.fft_size;
   sp_ = vec2d(fft_size_ / 2 + 1, f0_.size(), 0);
-  std::vector<double*> sp_wrapper = vec2d_wrapper(sp_);
+  std::vector<double *> sp_wrapper = vec2d_wrapper(sp_);
   CheapTrick(samples_.data(), samples_.size(), fs_, ts_.data(), f0_.data(),
              f0_.size(), &ct_option, sp_wrapper.data());
 }
@@ -42,35 +47,35 @@ void Model::BuildAp() {
   InitializeD4COption(&d4c_option);
   d4c_option.threshold = 0;
   ap_ = vec2d(fft_size_ / 2 + 1, f0_.size(), 0);
-  std::vector<double*> ap_wrapper = vec2d_wrapper(ap_);
+  std::vector<double *> ap_wrapper = vec2d_wrapper(ap_);
   D4C(samples_.data(), samples_.size(), fs_, ts_.data(), f0_.data(), f0_.size(),
       fft_size_, &d4c_option, ap_wrapper.data());
 }
 
 void Model::BuildResidual() {
-  std::vector<double*> sp_wrapper = vec2d_wrapper(sp_);
+  std::vector<double *> sp_wrapper = vec2d_wrapper(sp_);
   residual_ = vec2d(fft_size_, f0_.size(), 0);
-  std::vector<double*> residual_wrapper = vec2d_wrapper(residual_);
+  std::vector<double *> residual_wrapper = vec2d_wrapper(residual_);
   Platinum(samples_.data(), samples_.size(), fs_, ts_.data(), f0_.data(),
            f0_.size(), sp_wrapper.data(), fft_size_, residual_wrapper.data());
 }
 
-void Model::SynthParams(std::vector<std::vector<double>>* tension,
-                        std::vector<double>* breathiness,
-                        std::vector<double>* voicing) {
+void Model::SynthParams(std::vector<std::vector<double>> *tension,
+                        std::vector<double> *breathiness,
+                        std::vector<double> *voicing) {
   *tension = vec2d(sp_[0].size(), f0_.size(), 1);
   *breathiness = std::vector<double>(f0_.size(), 1);
   *voicing = std::vector<double>(f0_.size(), 1);
 }
 
-void Model::Synth(std::vector<std::vector<double>>& tension,
-                  std::vector<double>& breathiness,
-                  std::vector<double>& voicing) {
+void Model::Synth(std::vector<std::vector<double>> &tension,
+                  std::vector<double> &breathiness,
+                  std::vector<double> &voicing) {
   int y_len = static_cast<int>(fs_ * (f0_.size() - 1) * frame_ms_ / 1000.0) + 1;
   std::vector<double> y = std::vector<double>(y_len);
-  std::vector<double*> sp_wrapper = vec2d_wrapper(sp_);
-  std::vector<double*> ap_wrapper = vec2d_wrapper(ap_);
-  std::vector<double*> tension_wrapper = vec2d_wrapper(tension);
+  std::vector<double *> sp_wrapper = vec2d_wrapper(sp_);
+  std::vector<double *> ap_wrapper = vec2d_wrapper(ap_);
+  std::vector<double *> tension_wrapper = vec2d_wrapper(tension);
   Synthesis(f0_.data(), f0_.size(), sp_wrapper.data(), ap_wrapper.data(),
             fft_size_, frame_ms_, fs_, tension_wrapper.data(),
             breathiness.data(), voicing.data(), y_len, y.data());
@@ -80,8 +85,8 @@ void Model::Synth(std::vector<std::vector<double>>& tension,
 void Model::SynthPlatinum() {
   int y_len = static_cast<int>(fs_ * (f0_.size() - 1) * frame_ms_ / 1000.0) + 1;
   std::vector<double> y = std::vector<double>(y_len);
-  std::vector<double*> sp_wrapper = vec2d_wrapper(sp_);
-  std::vector<double*> residual_wrapper = vec2d_wrapper(residual_);
+  std::vector<double *> sp_wrapper = vec2d_wrapper(sp_);
+  std::vector<double *> residual_wrapper = vec2d_wrapper(residual_);
   SynthesisPlatinum(f0_.data(), f0_.size(), sp_wrapper.data(),
                     residual_wrapper.data(), fft_size_, frame_ms_, fs_, y_len,
                     y.data());
@@ -120,14 +125,14 @@ void Model::Trim(int start, int length) {
   }
 }
 
-void Model::Remap(const std::vector<double>& mapping) {
+void Model::Remap(const std::vector<double> &mapping) {
   std::vector<double> new_f0;
   std::vector<std::vector<double>> new_sp;
   std::vector<std::vector<double>> new_other;
   new_f0.reserve(mapping.size());
   new_sp.reserve(mapping.size());
   new_other.reserve(mapping.size());
-  const auto& other = ap_.size() > 0 ? ap_ : residual_;
+  const auto &other = ap_.size() > 0 ? ap_ : residual_;
   for (double p : mapping) {
     double pos = p / frame_ms_;
     int idx = static_cast<int>(pos);
@@ -156,4 +161,4 @@ double Model::GetVoicedRatio() {
 
 int Model::MsToSamples(double ms) { return static_cast<int>(ms * fs_ / 1000); }
 
-}  // namespace worldline
+} // namespace worldline

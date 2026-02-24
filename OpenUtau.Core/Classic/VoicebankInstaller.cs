@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -43,7 +43,7 @@ namespace OpenUtau.Classic {
                 AdjustBasePath(archive, path, touches);
                 int total = archive.Entries.Count();
                 int count = 0;
-                bool hasCharacterYaml = archive.Entries.Any(e => Path.GetFileName(e.Key) == kCharacterYaml);
+                bool hasCharacterYaml = archive.Entries.Any(e => e.Key != null && Path.GetFileName(e.Key).Equals(kCharacterYaml, StringComparison.OrdinalIgnoreCase));
                 foreach (var entry in archive.Entries) {
                     progress.Invoke(100.0 * ++count / total, entry.Key);
                     if (entry.Key.Contains("..")) {
@@ -54,16 +54,17 @@ namespace OpenUtau.Classic {
                     Directory.CreateDirectory(Path.GetDirectoryName(filePath));
                     if (!entry.IsDirectory && entry.Key != kInstallTxt) {
                         entry.WriteToFile(Path.Combine(basePath, entry.Key), extractionOptions);
-                        if (!hasCharacterYaml && Path.GetFileName(filePath) == kCharacterTxt) {
+                        var fileName = Path.GetFileName(filePath);
+                        if (!hasCharacterYaml && fileName.Equals(kCharacterTxt, StringComparison.OrdinalIgnoreCase)) {
                             var config = new VoicebankConfig() {
                                 TextFileEncoding = textEncoding.WebName,
                                 SingerType = singerType,
                             };
-                            using (var stream = File.Open(filePath.Replace(".txt", ".yaml"), FileMode.Create)) {
+                            using (var stream = File.Open(filePath.Replace(".txt", ".yaml"), FileMode.Create)) { // This replace might be fragile if case differs, but file system might be case insensitive in Windows. In WASM it matters. We should construct path carefully.
                                 config.Save(stream);
                             }
                         }
-                        if (hasCharacterYaml && Path.GetFileName(filePath) == kCharacterYaml) {
+                        if (hasCharacterYaml && fileName.Equals(kCharacterYaml, StringComparison.OrdinalIgnoreCase)) {
                             VoicebankConfig? config = null;
                             using (var stream = File.Open(filePath, FileMode.Open)) {
                                 config = VoicebankConfig.Load(stream);
@@ -90,9 +91,9 @@ namespace OpenUtau.Classic {
         }
 
         private void AdjustBasePath(IArchive archive, string archivePath, List<string> touches) {
-            var dirsAndFiles = archive.Entries.Select(e => e.Key).ToHashSet();
+            var dirsAndFiles = archive.Entries.Where(e => e.Key != null).Select(e => e.Key!).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var rootDirs = archive.Entries
-                .Where(e => e.IsDirectory)
+                .Where(e => e.IsDirectory && e.Key != null)
                 .Where(e => (e.Key.IndexOf('\\') < 0 || e.Key.IndexOf('\\') == e.Key.Length - 1)
                          && (e.Key.IndexOf('/') < 0 || e.Key.IndexOf('/') == e.Key.Length - 1))
                 .ToArray();
@@ -103,7 +104,7 @@ namespace OpenUtau.Classic {
             if (rootFiles.Count() > 0) {
                 // Need to create root folder.
                 basePath = Path.Combine(basePath, Path.GetFileNameWithoutExtension(archivePath).Trim());
-                if (rootFiles.Where(e => e.Key == kCharacterTxt).Count() == 0) {
+                if (rootFiles.Where(e => e.Key.Equals(kCharacterTxt, StringComparison.OrdinalIgnoreCase)).Count() == 0) {
                     // Need to create character.txt.
                     touches.Add(Path.Combine(basePath, kCharacterTxt));
                 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -34,13 +34,16 @@ namespace OpenUtau.Classic {
         }
 
         IResampler LoadResampler(string filePath, string basePath) {
+            if (OS.IsWasm()) {
+                return null;
+            }
             if (!File.Exists(filePath)) {
                 return null;
             }
             string ext = Path.GetExtension(filePath).ToLower();
             if ((OS.IsWindows() || !string.IsNullOrEmpty(Preferences.Default.WinePath)) && (ext == ".exe" || ext == ".bat")) {
                 return new ExeResampler(filePath, basePath);
-            } 
+            }
             if (!OS.IsWindows() && (ext == ".sh" || string.IsNullOrEmpty(ext))) {
                 return new ExeResampler(filePath, basePath);
             }
@@ -48,13 +51,16 @@ namespace OpenUtau.Classic {
         }
 
         IWavtool LoadWavtool(string filePath, string basePath) {
+            if (OS.IsWasm()) {
+                return null;
+            }
             if (!File.Exists(filePath)) {
                 return null;
             }
             string ext = Path.GetExtension(filePath).ToLower();
             if ((OS.IsWindows() || !string.IsNullOrEmpty(Preferences.Default.WinePath)) && (ext == ".exe" || ext == ".bat")) {
                 return new ExeWavtool(filePath, basePath);
-            } 
+            }
             if (!OS.IsWindows() && (ext == ".sh" || string.IsNullOrEmpty(ext))) {
                 return new ExeWavtool(filePath, basePath);
             }

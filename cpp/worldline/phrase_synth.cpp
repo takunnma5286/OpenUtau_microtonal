@@ -5,13 +5,13 @@
 #include <iterator>
 #include <vector>
 
-#include "world/constantnumbers.h"
-#include "worldline/classic/timing.h"
-#include "worldline/common/vec_utils.h"
-#include "worldline/f0/f0_estimator.h"
-#include "worldline/f0/frq_estimator.h"
-#include "worldline/f0/pyin_estimator.h"
-#include "worldline/model/effects.h"
+#include "../third_party/world/src/world/constantnumbers.h"
+#include "classic/timing.h"
+#include "common/vec_utils.h"
+#include "f0/f0_estimator.h"
+#include "f0/frq_estimator.h"
+#include "f0/pyin_estimator.h"
+#include "model/effects.h"
 
 namespace worldline {
 
@@ -22,7 +22,7 @@ static int ceil_int(double v) { return static_cast<int>(ceil(v)); }
 static int floor_int(double v) { return static_cast<int>(floor(v)); }
 static int round_int(double v) { return static_cast<int>(round(v)); }
 
-void PhraseSynth::AddRequest(const SynthRequest& request, double pos_ms,
+void PhraseSynth::AddRequest(const SynthRequest &request, double pos_ms,
                              double skip_ms, double length_ms,
                              double fade_in_ms, double fade_out_ms,
                              LogCallback logCallback) {
@@ -33,7 +33,7 @@ void PhraseSynth::AddRequest(const SynthRequest& request, double pos_ms,
 
   std::unique_ptr<F0Estimator> f0_estimator = nullptr;
   if (request.frq_length > 0) {
-    std::string_view frq_data(request.frq, request.frq_length);
+    std::string frq_data(request.frq, request.frq_length);
     f0_estimator = std::make_unique<FrqEstimator>(frq_data);
   } else {
     f0_estimator = std::make_unique<PyinEstimator>();
@@ -85,8 +85,8 @@ void PhraseSynth::AddRequest(const SynthRequest& request, double pos_ms,
   timings_.push_back(std::move(timing));
 }
 
-void PhraseSynth::SetCurves(double* const f0, double* gender, double* tension,
-                            double* breathiness, double* voicing, int length,
+void PhraseSynth::SetCurves(double *const f0, double *gender, double *tension,
+                            double *breathiness, double *voicing, int length,
                             LogCallback logCallback) {
   std::copy(f0, f0 + length, std::back_inserter(f0_));
   std::copy(gender, gender + length, std::back_inserter(gender_));
@@ -107,8 +107,8 @@ std::vector<double> PhraseSynth::Synth(LogCallback logCallback) {
   std::vector<int> dirty;
 
   for (int k = 0; k < models_.size(); ++k) {
-    auto& model = models_[k];
-    auto& timing = timings_[k];
+    auto &model = models_[k];
+    auto &timing = timings_[k];
     f0.resize(timing.p4, 0);
     sp.resize(timing.p4,
               std::vector<double>(width, world::kMySafeGuardMinimum));
@@ -182,4 +182,4 @@ std::vector<double> PhraseSynth::Synth(LogCallback logCallback) {
   return samples;
 }
 
-}  // namespace worldline
+} // namespace worldline

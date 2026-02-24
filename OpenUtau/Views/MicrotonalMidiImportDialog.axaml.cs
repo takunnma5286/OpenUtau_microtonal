@@ -7,12 +7,16 @@ namespace OpenUtau.App.Views {
             InitializeComponent();
         }
 
+        public bool DialogResult { get; private set; } = false;
+
         void OkClicked(object sender, RoutedEventArgs e) {
-            Close(true);
+            DialogResult = true;
+            Close();
         }
 
         void CancelClicked(object sender, RoutedEventArgs e) {
-            Close(false);
+            DialogResult = false;
+            Close();
         }
     }
 }
