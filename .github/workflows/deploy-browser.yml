@@ -23,7 +23,7 @@ jobs:
 
       # WASMビルドに必要なツールをインストール
       - name: Install WASM Tools
-        run: dotnet workload install wasm-tools
+        run: dotnet workload restore OpenUtau.Browser/OpenUtau.Browser.csproj
 
       # batファイルの内容を再現
       - name: Build WASM
