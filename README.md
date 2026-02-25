@@ -4,24 +4,17 @@
 
 ** This project is under active development! So expect instabilities. **
 
-This is a fork of OpenUTAU with the goal of adding support for microtonality. At the moment it has basic support for equal temperaments, only for WORLDLINE-R. It also works with VOICEVOX singers.
+This is a fork of OpenUTAU with the goal of adding support for microtonality. At the moment, it supports equal temperaments and loading .tun files only when using the WORLDLINE-R renderer, ~~classic renderer, or VOICEVOX~~.
+
+> [!WARNING]
+> ### Browser Version Caveats
+> **This branch has been modified to run in the browser using WebAssembly.** Because of this environment, please be aware of the following limitations compared to the desktop version:
+> - **Virtual File System**: The application runs in a browser sandbox and cannot directly access your local files. You must use the browser's file picker dialogs to load projects, voicebanks, and audio files.
+> - **Performance**: Because it runs in WebAssembly, audio rendering runs synchronously on the main thread. This may cause the UI to freeze temporarily during heavy operations like playback or export.
+> This can be mitigated by increasing the "Playback Buffer Size" option under Preferences -> Playback.
 
 For more information about OpenUTAU, visit [the repository for OpenUTAU](https://github.com/stakira/OpenUtau).
 For support, you can contact @takunnma on Discord. You can find him on [this server](https://discord.gg/k3Cp7kW6Jv).
-
-## Installation
-
-To get started, download the [latest beta release](https://github.com/takunnma5286/OpenUtau_microtonal/releases/tag/beta). You can—and should—install it alongside your existing installation of OpenUTAU. It will access the same folders and files as the existing one, so there is no need to move or copy voicebanks, phonemizers, or anything else.
-
-If you aren't sure which one to download, here's a quick guide:
-
-<img width="602" height="502" alt="image" src="https://github.com/user-attachments/assets/d72ac399-bb74-489f-ba4f-e493220ca9b8" />
-
-Windows: Open the downloads folder, and unzip the file you just downloaded. Run `OpenUtau.exe` in the unzipped folder.
-
-OSX: Open the downloads folder, and open the file you just downloaded. This will install it. Then you can run it.
-
-Linux: Open a terminal, and type `chmod +x Downloads/[file].AppImage`. Then you can close the terminal, and open it by clicking it in the Downloads folder.
 
 ## Usage
 

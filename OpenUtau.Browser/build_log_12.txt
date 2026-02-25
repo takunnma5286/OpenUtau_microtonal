@@ -1,9 +1,0 @@
-  蠕ｩ蜈・ｯｾ雎｡縺ｮ繝励Ο繧ｸ繧ｧ繧ｯ繝医ｒ豎ｺ螳壹＠縺ｦ縺・∪縺・..
-  蠕ｩ蜈・ｯｾ雎｡縺ｮ縺吶∋縺ｦ縺ｮ繝励Ο繧ｸ繧ｧ繧ｯ繝医・譛譁ｰ縺ｧ縺吶・
-  OpenUtau.Core -> D:\develop\OpenUtau_microtonal\OpenUtau.Core\bin\Debug\net8.0\OpenUtau.Core.dll
-  OpenUtau.Plugin.Builtin -> D:\develop\OpenUtau_microtonal\OpenUtau.Plugin.Builtin\bin\Debug\net8.0\OpenUtau.Plugin.Builtin.dll
-  OpenUtau -> D:\develop\OpenUtau_microtonal\OpenUtau\bin\Debug\net8.0\OpenUtau.dll
-  OpenUtau.Browser -> D:\develop\OpenUtau_microtonal\OpenUtau.Browser\bin\Release\net8.0-browser\OpenUtau.Browser.dll
-  OpenUtau.Browser (Blazor output) -> D:\develop\OpenUtau_microtonal\OpenUtau.Browser\bin\Release\net8.0-browser\wwwroot
-  繧｢繧ｻ繝ｳ繝悶Μ縺ｮ繧ｵ繧､繧ｺ繧呈怙驕ｩ蛹悶☆繧九→縲√い繝励Μ縺ｮ蜍穂ｽ懊′螟峨ｏ繧句庄閭ｽ諤ｧ縺後≠繧翫∪縺吶ょ・髢九＠縺溷ｾ後↓蠢・★繝・せ繝医＠縺ｦ縺上□縺輔＞縲Ｉttps://aka.ms/dotnet-illink 繧貞盾辣ｧ縺励※縺上□縺輔＞
-  繧｢繧ｻ繝ｳ繝悶Μ縺ｮ繧ｵ繧､繧ｺ繧呈怙驕ｩ蛹悶＠縺ｦ縺・∪縺吶ゅ％縺ｮ繝励Ο繧ｻ繧ｹ縺ｫ縺ｯ譎る俣縺後°縺九ｋ蝣ｴ蜷医′縺ゅｊ縺ｾ縺吶・
