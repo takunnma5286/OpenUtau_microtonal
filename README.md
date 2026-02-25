@@ -4,7 +4,7 @@
 
 ** This project is under active development! So expect instabilities. **
 
-This is a fork of OpenUTAU with the goal of adding support for microtonality. At the moment it has basic support for equal temperaments, only for WORLDLINE-R. It also works with VOICEVOX singers.
+This is a fork of OpenUTAU with the goal of adding support for microtonality. At the moment, it supports equal temperaments and loading .tun files only when using the WORLDLINE-R renderer, classic renderer, or VOICEVOX.
 
 For more information about OpenUTAU, visit [the repository for OpenUTAU](https://github.com/stakira/OpenUtau).
 For support, you can contact @takunnma on Discord. You can find him on [this server](https://discord.gg/k3Cp7kW6Jv).
@@ -25,7 +25,7 @@ Linux: Open a terminal, and type `chmod +x Downloads/[file].AppImage`. Then you 
 
 ## Usage
 
-Make sure you are using WORLDLINE-R.
+Make sure you are using WORLDLINE-R, classic renderer, or VOICEVOX.
 
 <img width="301" height="106" alt="image" src="https://github.com/user-attachments/assets/0354b417-215a-4de7-95e5-12af4f26099a" />
 

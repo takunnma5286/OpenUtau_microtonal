@@ -4,7 +4,7 @@
 
 ** このプロジェクトは現在開発中のため、動作が不安定な場合があります。 **
 
-これは、歌声合成ソフト OpenUTAU に微分音機能を追加するためのフォーク版です。現時点では、WORLDLINE-R レンダラー使用時のみ、平均律（EDO）に対応しています。また、VOICEVOX音源でも動作します。
+これは、歌声合成ソフト OpenUTAU に微分音機能を追加するためのフォーク版です。現時点では、WORLDLINE-R レンダラー、classic レンダラー、VOICEVOX使用時のみ、平均律及び .tun ファイルの読み込みに対応しています。
 
 OpenUTAU本体に関する詳しい情報は、[OpenUTAUのリポジトリ](https://github.com/stakira/OpenUtau)をご覧ください。
 サポートについては、Discordで開発者 @takunnma に連絡するか、彼が参加しているこちらの[サーバー](https://discord.gg/k3Cp7kW6Jv)にて、本人に直接お問い合わせください。
@@ -25,7 +25,7 @@ Linux: ターミナルを開き、`chmod +x Downloads/[file].AppImage` ファイ
 
 ## 使い方
 
-1. WORLDLINE-Rを使用していることを確認してください。
+1. WORLDLINE-R、classic レンダラー、VOICEVOXのいずれかを使用していることを確認してください。
 
 <img width="301" height="106" alt="image" src="https://github.com/user-attachments/assets/0354b417-215a-4de7-95e5-12af4f26099a" />
 
