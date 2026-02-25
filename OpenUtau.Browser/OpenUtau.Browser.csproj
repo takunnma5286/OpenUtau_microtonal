@@ -6,8 +6,16 @@
     <OutputType>Exe</OutputType>
     <WasmBuildNative>true</WasmBuildNative>
     <WasmMaximumHeapSize>4096MB</WasmMaximumHeapSize>
-    <EmccExtraLDFlags>-lidbfs.js -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS=_fma,_fmaf,_pow,_powf,_sqrt,_sqrtf,_sin,_sinf,_cos,_cosf,_tan,_tanf,_asin,_asinf,_acos,_acosf,_atan,_atanf,_atan2,_atan2f,_log,_logf,_exp,_expf,_sinh,_sinhf,_cosh,_coshf,_tanh,_tanhf,_asinh,_asinhf,_acosh,_acoshf,_atanh,_atanhf,_exp2,_exp2f,_log2,_log2f,_log10,_log10f,_ceil,_ceilf,_floor,_floorf,_round,_roundf,_fmod,_fmodf,_cbrt,_cbrtf,_hypot,_hypotf,_expm1,_expm1f,_log1p,_log1pf,_copysign,_copysignf,_trunc,_truncf,_rint,_rintf,_nearbyint,_nearbyintf,_fabs,_fabsf,_modf,_modff,_ldexp,_ldexpf,_frexp,_frexpf,_malloc,_free -s EXPORTED_RUNTIME_METHODS=ccall,cwrap,stackSave,stackRestore,stackAlloc,UTF8ToString,UTF8ArrayToString,stringToUTF8,setValue,getValue,addFunction,removeFunction,FS,runtimeKeepalivePush,runtimeKeepalivePop,safeSetTimeout,maybeExit -s FORCE_FILESYSTEM=1</EmccExtraLDFlags>
+    <EmccExtraLDFlags>-lidbfs.js -lGL -s MIN_WEBGL_VERSION=2 -s MAX_WEBGL_VERSION=2 -s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1</EmccExtraLDFlags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Math and standard functions required by worldline -->
+    <EmccExportedFunction Include="_fma;_fmaf;_pow;_powf;_sqrt;_sqrtf;_sin;_sinf;_cos;_cosf;_tan;_tanf;_asin;_asinf;_acos;_acosf;_atan;_atanf;_atan2;_atan2f;_log;_logf;_exp;_expf;_sinh;_sinhf;_cosh;_coshf;_tanh;_tanhf;_asinh;_asinhf;_acosh;_acoshf;_atanh;_atanhf;_exp2;_exp2f;_log2;_log2f;_log10;_log10f;_ceil;_ceilf;_floor;_floorf;_round;_roundf;_fmod;_fmodf;_cbrt;_cbrtf;_hypot;_hypotf;_expm1;_expm1f;_log1p;_log1pf;_copysign;_copysignf;_trunc;_truncf;_rint;_rintf;_nearbyint;_nearbyintf;_fabs;_fabsf;_modf;_modff;_ldexp;_ldexpf;_frexp;_frexpf;_malloc;_free" />
+    
+    <!-- Exported capabilities required by Worldline WASM and Avalonia GL -->
+    <EmccExportedRuntimeMethod Include="ccall;cwrap;stackSave;stackRestore;stackAlloc;UTF8ToString;UTF8ArrayToString;stringToUTF8;setValue;getValue;addFunction;removeFunction;FS;runtimeKeepalivePush;runtimeKeepalivePop;safeSetTimeout;maybeExit;GL" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Browser" Version="11.2.4" />

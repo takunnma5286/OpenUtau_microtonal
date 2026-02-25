@@ -26,7 +26,6 @@ dotnet clean -c Release
 :: -p:Configuration=Release: Explicitly force Release configuration for all dependencies
 
 dotnet publish -c Release -f net8.0-browser ^
-    -p:RunAOTCompilation=true ^
     -p:WasmEnableSIMD=true ^
     -p:WasmEnableExceptionHandling=true ^
     -p:PublishTrimmed=false ^
