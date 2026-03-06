@@ -133,11 +133,11 @@ namespace OpenUtau.Core.DawIntegration {
     }
 
     public class UpdateAudioNotification : DawDawNotification {
-        public Dictionary<int, string> audios;
+        public Dictionary<uint, string> audios;
 
         public override string kind => "updateAudio";
 
-        public UpdateAudioNotification(Dictionary<int, string> audios) {
+        public UpdateAudioNotification(Dictionary<uint, string> audios) {
             this.audios = audios;
         }
     }
