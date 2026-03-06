@@ -104,11 +104,8 @@ OpenUtauPlugin::~OpenUtauPlugin() {
   if (this->acceptorThread != nullptr) {
     this->acceptorThread->request_stop();
   }
-  for (auto &[_, thread] : this->threads) {
-    thread.request_stop();
-  }
-  for (auto &[_, thread] : this->threads) {
-    thread.join();
+  while (this->activeTasks > 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   while (this->connected) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -301,7 +298,8 @@ void OpenUtauPlugin::run(const float **inputs, float **outputs, uint32_t frames,
   }
 
   auto sampleRate = getSampleRate();
-  // The lock should not be held for too long, so we do lock in `run` (where DAW requests audio)
+  // The lock should not be held for too long, so we do lock in `run` (where DAW
+  // requests audio)
   auto lock = std::shared_lock(this->mixMutex);
   if (this->mixes.size() > 0 && timePosition.playing) {
     if (this->currentSampleRate == sampleRate) {
@@ -439,41 +437,36 @@ void OpenUtauPlugin::onAccept(OpenUtauPlugin *self,
                           firstColon + 1, secondColon - firstColon - 1);
                       std::string requestType = header.substr(secondColon + 1);
 
-                      self->threads[messageId] =
-                          std::jthread([self, socket, messageId, requestType,
-                                        value](std::stop_token st) mutable {
-                            choc::value::Value responseObj =
-                                choc::value::createObject("");
-                            try {
-                              auto response =
-                                  self->onRequest(requestType, value);
-                              responseObj.setMember("success", true);
-                              responseObj.setMember("data", response);
-                            } catch (std::exception &e) {
-                              responseObj.setMember("success", false);
-                              responseObj.setMember("error", e.what());
-                            }
+                      self->activeTasks++;
+                      std::thread([self, socket, messageId, requestType,
+                                   value]() mutable {
+                        choc::value::Value responseObj =
+                            choc::value::createObject("");
+                        try {
+                          auto response = self->onRequest(requestType, value);
+                          responseObj.setMember("success", true);
+                          responseObj.setMember("data", response);
+                        } catch (std::exception &e) {
+                          responseObj.setMember("success", false);
+                          responseObj.setMember("error", e.what());
+                        }
 
-                            auto responseString = formatMessage(
-                                std::format("response:{}", messageId),
-                                responseObj);
-                            socket->write_some(asio::buffer(responseString));
+                        auto responseString = formatMessage(
+                            std::format("response:{}", messageId), responseObj);
+                        socket->write_some(asio::buffer(responseString));
 
-                            self->threads[messageId].detach();
-                            self->threads.erase(messageId);
-                          });
+                        self->activeTasks--;
+                      }).detach();
                     } else if (messageType == "notification") {
                       std::string notificationType =
                           header.substr(firstColon + 1);
-                      auto messageId = uuid::v4::UUID::New().String();
-                      self->threads[messageId] = std::jthread(
-                          [self, socket, messageId, notificationType,
-                           value](std::stop_token st) mutable {
-                            self->onNotification(notificationType, value);
+                      self->activeTasks++;
+                      std::thread([self, socket, messageId, notificationType,
+                                   value]() mutable {
+                        self->onNotification(notificationType, value);
 
-                            self->threads[messageId].detach();
-                            self->threads.erase(messageId);
-                          });
+                        self->activeTasks--;
+                      }).detach();
                     }
                   }
                 }
@@ -661,12 +654,11 @@ void OpenUtauPlugin::syncMapping() {
 }
 
 void OpenUtauPlugin::requestResampleMixes(double newSampleRate) {
-  auto uuid = uuid::v4::UUID::New().String();
-  this->threads[uuid] = std::jthread([this, uuid, newSampleRate]() {
+  this->activeTasks++;
+  std::thread([this, newSampleRate]() {
     this->resampleMixes(newSampleRate);
-    this->threads[uuid].detach();
-    this->threads.erase(uuid);
-  });
+    this->activeTasks--;
+  }).detach();
 }
 
 void OpenUtauPlugin::resampleMixes(double newSampleRate) {

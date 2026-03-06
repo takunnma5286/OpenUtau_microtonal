@@ -16,7 +16,7 @@
 
 // note: OpenUtau returns 44100Hz, 2ch, 32bit float audio
 
-using AudioHash = int;
+using AudioHash = uint32_t;
 class Part {
 public:
   int trackNo;
@@ -124,7 +124,7 @@ private:
   std::unique_ptr<asio::ip::tcp::acceptor> acceptor;
   std::unique_ptr<std::jthread> acceptorThread;
 
-  std::unordered_map<std::string, std::jthread> threads;
+  std::atomic<int> activeTasks{0};
 
   yamc::alternate::basic_shared_mutex<yamc::rwlock::WriterPrefer> tracksMutex;
   std::mutex partMutex;
