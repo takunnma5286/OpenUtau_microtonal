@@ -137,7 +137,6 @@ namespace OpenUtau.Core.DawIntegration {
 
                 if (missingAudios.missingAudios.Count > 0) {
                     Log.Information($"DAW requested {missingAudios.missingAudios.Count} missing audios.");
-                    var buffersDict = buffers.GroupBy(buffer => buffer.hash).ToDictionary(group => group.Key, group => group.First());
                     var audios = new Dictionary<uint, string>();
                     foreach (var audioHash in missingAudios.missingAudios) {
                         if (!hashToAudioPart.ContainsKey(audioHash)) {
