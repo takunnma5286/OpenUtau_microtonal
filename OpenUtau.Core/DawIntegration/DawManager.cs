@@ -104,7 +104,7 @@ namespace OpenUtau.Core.DawIntegration {
                     .ToList();
 
                 Log.Information("Rendering prerenders for DAW...");
-                var hashToAudioPart = new Dictionary<int, byte[]>();
+                var hashToAudioPart = new Dictionary<uint, byte[]>();
                 var buffers = readyParts.Select(part => {
                     double startMs = DocManager.Inst.Project.timeAxis.TickPosToMsPos(part.position);
                     double endMs = DocManager.Inst.Project.timeAxis.TickPosToMsPos(part.position + part.duration);
@@ -116,7 +116,7 @@ namespace OpenUtau.Core.DawIntegration {
                     part.Mix.Mix(samplePos, floatBuffer, 0, sampleCount);
                     var byteBuffer = new byte[floatBuffer.Length * 4];
                     Buffer.BlockCopy(floatBuffer, 0, byteBuffer, 0, byteBuffer.Length);
-                    int hash = unchecked((int)XXH32.DigestOf(byteBuffer));
+                    uint hash = XXH32.DigestOf(byteBuffer);
 
                     hashToAudioPart[hash] = byteBuffer;
 
@@ -138,7 +138,7 @@ namespace OpenUtau.Core.DawIntegration {
                 if (missingAudios.missingAudios.Count > 0) {
                     Log.Information($"DAW requested {missingAudios.missingAudios.Count} missing audios.");
                     var buffersDict = buffers.GroupBy(buffer => buffer.hash).ToDictionary(group => group.Key, group => group.First());
-                    var audios = new Dictionary<int, string>();
+                    var audios = new Dictionary<uint, string>();
                     foreach (var audioHash in missingAudios.missingAudios) {
                         if (!hashToAudioPart.ContainsKey(audioHash)) {
                             Log.Warning($"DAW requested missing audio {audioHash}, but it is not in the project.");

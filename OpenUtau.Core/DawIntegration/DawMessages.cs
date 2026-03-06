@@ -90,9 +90,9 @@ namespace OpenUtau.Core.DawIntegration {
             public int trackNo;
             public double startMs;
             public double endMs;
-            public int audioHash;
+            public uint audioHash;
 
-            public Part(int trackNo, double startMs, double endMs, int audioHash) {
+            public Part(int trackNo, double startMs, double endMs, uint audioHash) {
                 this.trackNo = trackNo;
                 this.startMs = startMs;
                 this.endMs = endMs;
@@ -102,9 +102,9 @@ namespace OpenUtau.Core.DawIntegration {
     }
 
     public class UpdatePartLayoutResponse : DawDawResponse {
-        public List<int> missingAudios;
+        public List<uint> missingAudios;
 
-        public UpdatePartLayoutResponse(List<int> missingAudios) {
+        public UpdatePartLayoutResponse(List<uint> missingAudios) {
             this.missingAudios = missingAudios;
         }
 
