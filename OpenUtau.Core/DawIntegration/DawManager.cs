@@ -7,6 +7,10 @@ using K4os.Hash.xxHash;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using Serilog;
+using System.IO;
+using Melanchall.DryWetMidi.Common;
+using Melanchall.DryWetMidi.Core;
+using Melanchall.DryWetMidi.Interaction;
 
 namespace OpenUtau.Core.DawIntegration {
     public class DawManager : SingletonBase<DawManager>, ICmdSubscriber {
@@ -14,9 +18,33 @@ namespace OpenUtau.Core.DawIntegration {
         CancellationTokenSource? renderCancellation = null;
         private Debounce sendLayoutDebounce = new Debounce();
         private Debounce sendAudioDebounce = new Debounce();
+        private System.Threading.Timer? commandWatcher;
+
+        public static string CommandFilePath => Path.Combine(Path.GetTempPath(), "openutau_daw_command.txt");
 
         private DawManager() {
             DocManager.Inst.AddSubscriber(this);
+            // Watch for command files from external tools (ReaScript etc.)
+            commandWatcher = new System.Threading.Timer(CheckCommandFile, null, 50, 50);
+        }
+
+        private void CheckCommandFile(object? state) {
+            try {
+                var path = CommandFilePath;
+                if (!File.Exists(path)) return;
+
+                string content = File.ReadAllText(path).Trim();
+                File.Delete(path);
+
+                if (content.StartsWith("openPartEditor:")) {
+                    if (int.TryParse(content.Substring("openPartEditor:".Length), out int trackNo)) {
+                        Log.Information($"External command: open part editor for track {trackNo}");
+                        DocManager.Inst.ExecuteCmd(new OpenPartEditorNotification(trackNo));
+                    }
+                }
+            } catch (Exception ex) {
+                Log.Error(ex, "Error checking command file");
+            }
         }
 
         public void OnNext(UCommand cmd, bool isUndo) {
@@ -160,6 +188,69 @@ namespace OpenUtau.Core.DawIntegration {
             } catch (Exception e) {
                 Log.Error(e, "Failed to send status to DAW.");
             }
+        }
+
+        public void GenerateSyncMidi(UPart part, string filePath) {
+            var project = DocManager.Inst.Project;
+            var midiFile = new MidiFile();
+            
+            // Project resolution (typically 480 PPQ)
+            midiFile.TimeDivision = new TicksPerQuarterNoteTimeDivision((short)project.resolution);
+            
+            // Tempo and Time Signature Map
+            midiFile.Chunks.Add(new TrackChunk());
+            using (TempoMapManager tempoMapManager = midiFile.ManageTempoMap()) {
+                var lastUTimeSignature = new UTimeSignature {
+                    barPosition = 0,
+                    beatPerBar = 4,
+                    beatUnit = 4
+                };
+                int lastTime = 0;
+                foreach (UTimeSignature uTimeSignature in project.timeSignatures) {
+                    var time = lastTime + (uTimeSignature.barPosition - lastUTimeSignature.barPosition) * lastUTimeSignature.beatPerBar * 4 / lastUTimeSignature.beatUnit * project.resolution;
+                    tempoMapManager.SetTimeSignature(time, new TimeSignature(uTimeSignature.beatPerBar, uTimeSignature.beatUnit));
+                    lastUTimeSignature = uTimeSignature;
+                    lastTime = time;
+                }
+                foreach(UTempo uTempo in project.tempos){
+                    tempoMapManager.SetTempo(uTempo.position, Tempo.FromBeatsPerMinute(uTempo.bpm));
+                }
+            }
+
+            var trackChunk = new TrackChunk(
+                new SequenceTrackNameEvent("OpenUtau Sync")
+            );
+            midiFile.Chunks.Add(trackChunk);
+
+            // Sync granularity: 16th notes (PPQ / 4 quarter note multiplier = typically 120 ticks)
+            int ppq = ((TicksPerQuarterNoteTimeDivision)midiFile.TimeDivision).TicksPerQuarterNote; // usually 480
+            int ticksPerStep = ppq / 16; // 1/64th note (480 / 16 = 30 ticks)
+            
+            int partStartStep = part.position / ticksPerStep;
+            int partEndStep = (part.position + part.Duration + ticksPerStep - 1) / ticksPerStep;
+
+            byte velocity = (byte)Math.Clamp(part.trackNo + 1, 1, 127);
+            
+            using (var notesManager = trackChunk.ManageNotes()) {
+                var notes = notesManager.Objects;
+                for (int i = partStartStep; i < partEndStep; i++) {
+                    int tickPos = i * ticksPerStep;
+                    int noteIndex = i + 1; // 1-indexed for the encoded value
+                    int noteDuration = ticksPerStep / 2;
+                    if (noteDuration == 0) continue;
+
+                    for (int bit = 0; bit < 32; bit++) {
+                        if (((noteIndex >> bit) & 1) == 1) {
+                            byte pitch = (byte)Math.Clamp(bit, 0, 127); // bit 0 = C-1 according to MIDI standards depending on offset
+                            notes.Add(new Note((SevenBitNumber)pitch, noteDuration, tickPos) {
+                                Velocity = (SevenBitNumber)velocity
+                            });
+                        }
+                    }
+                }
+            }
+
+            midiFile.Write(filePath, true);
         }
     }
 }

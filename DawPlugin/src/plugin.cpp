@@ -51,7 +51,7 @@ choc::value::Value Part::serialize() const {
   auto obj = choc::value::createObject("", "trackNo", trackNo, "startMs",
                                        startMs, "endMs", endMs);
   if (hash.has_value()) {
-    obj.setMember("audioHash", hash.value());
+    obj.setMember("audioHash", (int64_t)hash.value());
   }
 
   return obj;
@@ -289,19 +289,68 @@ void OpenUtauPlugin::initPortGroup(uint32_t groupId, PortGroup &group) {
 void OpenUtauPlugin::run(const float **inputs, float **outputs, uint32_t frames,
                          const MidiEvent *midiEvents, uint32_t midiEventCount) {
 
+  auto sampleRate = getSampleRate();
   auto timePosition = this->getTimePosition();
+  auto bpm = timePosition.bbt.valid ? timePosition.bbt.beatsPerMinute : 120.0;
 
+  // Stop playback when DAW stops
+  if (!timePosition.playing) {
+    this->playbackActive = false;
+  }
+
+  // Parse MIDI Events for Sync (Velocity = TrackNo + 1, Pitch = Bit Index)
+  for (uint32_t i = 0; i < midiEventCount; ++i) {
+    auto &event = midiEvents[i];
+    if (event.size == 3) {
+      uint8_t status = event.data[0] & 0xF0;
+      if (status == 0x90) { // Note On
+        uint8_t pitch = event.data[1];
+        uint8_t velocity = event.data[2];
+        if (velocity > 0) {
+          // Reconstruct the 1/64th note index from binary-encoded pitches
+          uint32_t syncNoteIndex = 0;
+          syncNoteIndex |= (1 << pitch);
+          // Collect remaining NoteOns in this buffer for the same velocity
+          for (uint32_t k = i + 1; k < midiEventCount; ++k) {
+            auto &ev2 = midiEvents[k];
+            if (ev2.size == 3 && (ev2.data[0] & 0xF0) == 0x90 &&
+                ev2.data[2] == velocity) {
+              syncNoteIndex |= (1 << ev2.data[1]);
+            }
+          }
+          // noteIndex is 1-indexed, so subtract 1
+          uint32_t index = syncNoteIndex - 1;
+          // index is in 1/64th notes. 1 quarter note = 16 1/64th notes
+          double quarterNotes = (double)index / 16.0;
+          double seconds = quarterNotes * (60.0 / bpm);
+          double syncFrame = seconds * sampleRate;
+
+          // Only jump if the sync position differs significantly from current
+          // (more than 2 buffer lengths away), to avoid micro-jumps causing
+          // clicks
+          double diff = syncFrame - this->currentPlaybackFrame;
+          if (diff < 0)
+            diff = -diff;
+          if (!this->playbackActive || diff > frames * 2) {
+            this->currentPlaybackFrame = syncFrame;
+          }
+
+          this->playbackActive = true;
+          break; // Only need to process one sync event per buffer
+        }
+      }
+    }
+  }
+
+  // Zero all outputs
   for (uint32_t i = 0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i) {
     for (uint32_t j = 0; j < frames; ++j) {
       outputs[i][j] = 0;
     }
   }
 
-  auto sampleRate = getSampleRate();
-  // The lock should not be held for too long, so we do lock in `run` (where DAW
-  // requests audio)
-  auto lock = std::shared_lock(this->mixMutex);
-  if (this->mixes.size() > 0 && timePosition.playing) {
+  // Play audio from internal position, advancing continuously
+  if (this->mixes.size() > 0 && this->playbackActive) {
     if (this->currentSampleRate == sampleRate) {
       for (uint32_t j = 0; j < mixes.size(); ++j) {
         if (j >= this->outputMap.size()) {
@@ -317,11 +366,9 @@ void OpenUtauPlugin::run(const float **inputs, float **outputs, uint32_t frames,
         const auto &track = tracks[j];
 
         for (uint32_t i = 0; i < frames; ++i) {
-          auto frame = (i + timePosition.frame);
-          if (frame >= left.size()) {
-            break;
-          }
-          if (frame >= right.size()) {
+          uint32_t frame = (uint32_t)(this->currentPlaybackFrame + i);
+
+          if (frame >= left.size() || frame >= right.size()) {
             break;
           }
           auto fadedLeft = left[frame] * Utils::dbToMultiplier(track.volume);
@@ -356,6 +403,9 @@ void OpenUtauPlugin::run(const float **inputs, float **outputs, uint32_t frames,
     } else {
       requestResampleMixes(sampleRate);
     }
+
+    // Advance the internal playback position
+    this->currentPlaybackFrame += frames;
   }
 };
 
@@ -369,9 +419,11 @@ void OpenUtauPlugin::onAccept(OpenUtauPlugin *self,
     self->willAccept();
     if (!self->connected) {
       self->connected = true;
+      auto shared_socket =
+          std::make_shared<asio::ip::tcp::socket>(std::move(socket));
+      self->activeSocket = shared_socket;
       self->acceptorThread = std::make_unique<std::jthread>(
-          [self, socket = std::make_shared<asio::ip::tcp::socket>(
-                     std::move(socket))](std::stop_token st) mutable {
+          [self, socket = shared_socket](std::stop_token st) mutable {
             std::string messageBuffer;
             char buffer[16 * 1024];
             std::promise<size_t> readPromise;
@@ -418,6 +470,7 @@ void OpenUtauPlugin::onAccept(OpenUtauPlugin *self,
                     if (message == "close") {
                       socket->close();
                       self->connected = false;
+                      self->activeSocket = nullptr;
                       return;
                     }
 
@@ -457,11 +510,26 @@ void OpenUtauPlugin::onAccept(OpenUtauPlugin *self,
 
                         self->activeTasks--;
                       }).detach();
+                    } else if (messageType == "response") {
+                      std::string messageId = header.substr(firstColon + 1);
+                      if (self->pendingRequests.find(messageId) !=
+                          self->pendingRequests.end()) {
+                        auto cb = self->pendingRequests[messageId];
+                        self->pendingRequests.erase(messageId);
+
+                        self->activeTasks++;
+                        std::thread([self, cb, value]() mutable {
+                          if (value["success"].get<bool>()) {
+                            cb(value["data"]);
+                          }
+                          self->activeTasks--;
+                        }).detach();
+                      }
                     } else if (messageType == "notification") {
                       std::string notificationType =
                           header.substr(firstColon + 1);
                       self->activeTasks++;
-                      std::thread([self, socket, messageId, notificationType,
+                      std::thread([self, socket, notificationType,
                                    value]() mutable {
                         self->onNotification(notificationType, value);
 
@@ -573,7 +641,7 @@ choc::value::Value OpenUtauPlugin::onRequest(const std::string kind,
     choc::value::Value response = choc::value::createObject("");
     auto missingAudios = choc::value::createEmptyArray();
     for (const auto &hash : toAdd) {
-      missingAudios.addArrayElement(hash);
+      missingAudios.addArrayElement((int64_t)hash);
     }
     response.setMember("missingAudios", missingAudios);
 
@@ -734,6 +802,22 @@ OpenUtauPlugin::formatMessage(const std::string &kind,
                               const choc::value::ValueView &payload) {
   std::string json = choc::json::toString(payload);
   return std::format("{} {}\n", kind, json);
+}
+
+void OpenUtauPlugin::sendRequest(
+    std::shared_ptr<asio::ip::tcp::socket> socket, const std::string &kind,
+    const choc::value::Value &payload,
+    std::function<void(const choc::value::ValueView &)> onResponse) {
+  std::string uuid = std::to_string(std::rand()); // Simple UUID
+  this->pendingRequests[uuid] = onResponse;
+
+  std::string message =
+      formatMessage(std::format("request:{}:{}", uuid, kind), payload);
+  try {
+    socket->write_some(asio::buffer(message));
+  } catch (std::exception &e) {
+    this->pendingRequests.erase(uuid);
+  }
 }
 
 bool OpenUtauPlugin::isProcessing() {

@@ -18,6 +18,7 @@ namespace OpenUtau.Core.DawIntegration {
         private CancellationTokenSource? cancellationTokenSource;
         private Dictionary<string, Action<string>> handlers = new Dictionary<string, Action<string>>();
         private Dictionary<string, Action<string>> onetimeHandlers = new Dictionary<string, Action<string>>();
+        private Dictionary<string, Func<string, object>> requestHandlers = new Dictionary<string, Func<string, object>>();
         readonly SemaphoreSlim writerSemaphore = new SemaphoreSlim(1, 1);
 
         private DawClient(DawServer server) {
@@ -64,7 +65,22 @@ namespace OpenUtau.Core.DawIntegration {
                             var kind = parts[0];
                             var content = parts.Length > 1 ? parts[1] : "";
                             try {
-                                if (handlers.ContainsKey(kind)) {
+                                if (kind.StartsWith("request:")) {
+                                    // Incoming request from plugin: request:{uuid}:{requestType}
+                                    var headerParts = kind.Split(':', 3);
+                                    if (headerParts.Length >= 3) {
+                                        var requestUuid = headerParts[1];
+                                        var requestType = headerParts[2];
+                                        if (requestHandlers.ContainsKey(requestType)) {
+                                            var responseData = requestHandlers[requestType](content);
+                                            var responseJson = JsonConvert.SerializeObject(new { success = true, data = responseData });
+                                            await SendRawMessage($"response:{requestUuid} {responseJson}");
+                                        } else {
+                                            var errorJson = JsonConvert.SerializeObject(new { success = false, error = $"Unknown request type: {requestType}" });
+                                            await SendRawMessage($"response:{requestUuid} {errorJson}");
+                                        }
+                                    }
+                                } else if (handlers.ContainsKey(kind)) {
                                     handlers[kind](content);
                                 } else if (onetimeHandlers.ContainsKey(kind)) {
                                     onetimeHandlers[kind](content);
@@ -166,6 +182,25 @@ namespace OpenUtau.Core.DawIntegration {
         }
         private void RegisterOnetimeListener(string kind, Action<string> handler) {
             onetimeHandlers[kind] = handler;
+        }
+
+        public void RegisterRequestHandler<TReq, TResp>(string kind, Func<TReq, TResp> handler) where TReq : DawOuRequest where TResp : DawOuResponse {
+            requestHandlers[kind] = (string content) => {
+                var request = JsonConvert.DeserializeObject<TReq>(content)!;
+                return handler(request);
+            };
+        }
+
+        private async Task SendRawMessage(string message) {
+            if (stream == null) {
+                throw new Exception("stream is null");
+            }
+            await writerSemaphore.WaitAsync();
+            try {
+                await stream.WriteAsync(Encoding.UTF8.GetBytes($"{message}\n"));
+            } finally {
+                writerSemaphore.Release();
+            }
         }
 
         public void Disconnect() {

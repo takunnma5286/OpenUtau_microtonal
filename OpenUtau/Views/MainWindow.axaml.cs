@@ -1303,10 +1303,33 @@ namespace OpenUtau.App.Views {
             }
         }
 
-        public void PartsCanvasPointerMoved(object sender, PointerEventArgs args) {
+        public async void PartsCanvasPointerMoved(object sender, PointerEventArgs args) {
             var control = (Control)sender;
             var point = args.GetCurrentPoint(control);
             if (partEditState != null) {
+                if (partEditState is PartMoveEditState moveState &&
+                    (point.Position.X < 0 || point.Position.Y < 0 ||
+                     point.Position.X > control.Bounds.Width || point.Position.Y > control.Bounds.Height)) {
+                     
+                     var part = moveState.part;
+                     partEditState.End(point.Pointer, point.Position);
+                     partEditState = null;
+                     
+                     string tmpMidi = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "OpenUtau_Sync.mid");
+                     Core.DawIntegration.DawManager.Inst.GenerateSyncMidi(part, tmpMidi);
+                     
+                     var data = new Avalonia.Input.DataObject();
+                     var storageProvider = Avalonia.Controls.TopLevel.GetTopLevel(this)?.StorageProvider;
+                     if (storageProvider != null) {
+                         var storageFile = await storageProvider.TryGetFileFromPathAsync(new Uri("file://" + tmpMidi.Replace("\\", "/")));
+                         if (storageFile != null) {
+                             data.Set(Avalonia.Input.DataFormats.Files, new[] { storageFile });
+                         }
+                     }
+                     await Avalonia.Input.DragDrop.DoDragDrop(args, data, Avalonia.Input.DragDropEffects.Copy);
+                     return;
+                }
+
                 partEditState.Update(point.Pointer, point.Position);
                 return;
             }
@@ -1347,34 +1370,39 @@ namespace OpenUtau.App.Views {
             }
         }
 
-        public async void PartsCanvasDoubleTapped(object sender, TappedEventArgs args) {
+        public void PartsCanvasDoubleTapped(object sender, TappedEventArgs args) {
             if (!(sender is Canvas canvas)) {
                 return;
             }
             var control = canvas.InputHitTest(args.GetPosition(canvas));
             if (control is PartControl partControl && partControl.part is UVoicePart) {
-                if (pianoRollWindow == null) {
-                    LoadingWindow.BeginLoading(this);
-
-                    var model = await Task.Run<PianoRollViewModel>(() => new PianoRollViewModel());
-                    pianoRollWindow = new PianoRollWindow(model) {
-                        MainWindow = this,
-                    };
-
-                    await Task.Run(() =>
-                        pianoRollWindow.InitializePianoRollWindowAsync()
-                    );
-                    LoadingWindow.EndLoading();
-
-                    pianoRollWindow.ViewModel.PlaybackViewModel = viewModel.PlaybackViewModel;
-                    pianoRollWindow.Show();
-                }
-                // Workaround for new window losing focus.
-                openPianoRollWindow = true;
                 int tick = viewModel.TracksViewModel.PointToTick(args.GetPosition(canvas));
-                DocManager.Inst.ExecuteCmd(new LoadPartNotification(partControl.part, DocManager.Inst.Project, tick));
-                pianoRollWindow.AttachExpressions();
+                OpenPianoRoll(partControl.part, tick);
             }
+        }
+
+        private async void OpenPianoRoll(UPart part, int tick) {
+            if (pianoRollWindow == null) {
+                LoadingWindow.BeginLoading(this);
+
+                var model = await Task.Run<PianoRollViewModel>(() => new PianoRollViewModel());
+                pianoRollWindow = new PianoRollWindow(model) {
+                    MainWindow = this,
+                };
+
+                await Task.Run(() =>
+                    pianoRollWindow.InitializePianoRollWindowAsync()
+                );
+                LoadingWindow.EndLoading();
+
+                pianoRollWindow.ViewModel.PlaybackViewModel = viewModel.PlaybackViewModel;
+            }
+            pianoRollWindow.Show();
+            pianoRollWindow.Activate();
+            // Workaround for new window losing focus.
+            openPianoRollWindow = true;
+            DocManager.Inst.ExecuteCmd(new LoadPartNotification(part, DocManager.Inst.Project, tick));
+            pianoRollWindow.AttachExpressions();
         }
 
         public void MainPagePointerWheelChanged(object sender, PointerWheelEventArgs args) {
@@ -1735,9 +1763,23 @@ namespace OpenUtau.App.Views {
                     }
                 }
             } else if (cmd is DawConnectedNotification) {
+                Dispatcher.UIThread.Post(() => {
+                    this.Activate();
+                });
                 DocManager.Inst.ExecuteCmd(new ProgressBarNotification(100,
                     ThemeManager.GetString("dawintegration.status.connected")
                 ));
+            } else if (cmd is OpenPartEditorNotification openPartNotif) {
+                Dispatcher.UIThread.Post(() => {
+                    var project = DocManager.Inst.Project;
+                    var voicePart = project.parts
+                        .Where(p => p is UVoicePart && p.trackNo == openPartNotif.trackNo)
+                        .FirstOrDefault();
+                    if (voicePart != null) {
+                        OpenPianoRoll(voicePart, voicePart.position);
+                        this.Activate();
+                    }
+                });
             } else if (cmd is DawDisconnectedNotification) {
                 DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(
                     ThemeManager.GetString("dawintegration.status.disconnected")

@@ -97,6 +97,14 @@ private:
   static std::string formatMessage(const std::string &kind,
                                    const choc::value::ValueView &payload);
 
+  void
+  sendRequest(std::shared_ptr<asio::ip::tcp::socket> socket,
+              const std::string &kind, const choc::value::Value &payload,
+              std::function<void(const choc::value::ValueView &)> onResponse);
+  std::unordered_map<std::string,
+                     std::function<void(const choc::value::ValueView &)>>
+      pendingRequests;
+
   void syncMapping();
   void updatePluginServerFile();
   void requestResampleMixes(double newSampleRate);
@@ -118,11 +126,14 @@ private:
   bool isProcessingMix = false;
   std::vector<std::pair<std::vector<float>, std::vector<float>>> mixes;
   double currentSampleRate = 44100.0;
+  double currentPlaybackFrame = 0;
+  bool playbackActive = false;
 
   std::filesystem::path socketPath;
 
   std::unique_ptr<asio::ip::tcp::acceptor> acceptor;
   std::unique_ptr<std::jthread> acceptorThread;
+  std::shared_ptr<asio::ip::tcp::socket> activeSocket;
 
   std::atomic<int> activeTasks{0};
 

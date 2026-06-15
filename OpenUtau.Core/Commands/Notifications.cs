@@ -256,4 +256,11 @@ namespace OpenUtau.Core {
     public class DawDisconnectedNotification : UNotification {
         public override string ToString() => $"Disconnected from DAW.";
     }
+    public class OpenPartEditorNotification : UNotification {
+        public readonly int trackNo;
+        public OpenPartEditorNotification(int trackNo) {
+            this.trackNo = trackNo;
+        }
+        public override string ToString() => $"Open part editor for track {trackNo}.";
+    }
 }

@@ -142,6 +142,22 @@ namespace OpenUtau.Core.DawIntegration {
         }
     }
 
+    public class FetchAudioRequest : DawOuRequest {
+        public long projectPos;
+        public long framePos;
+        public string trackNo = "";
+
+        public FetchAudioRequest() { }
+    }
+
+    public class FetchAudioResponse : DawOuResponse {
+        public bool ok;
+
+        public FetchAudioResponse(bool ok) {
+            this.ok = ok;
+        }
+    }
+
     public class PingNotification : DawOuNotification {
     }
 }

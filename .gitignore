@@ -343,3 +343,13 @@ Microsoft.AI.DirectML
 
 # Release output
 release-output/
+
+# DAW Plugin deps
+DawPlugin/deps/dpf/
+DawPlugin/deps/asio/
+DawPlugin/deps/zstd/
+DawPlugin/deps/noto_sans/
+DawPlugin/deps/yamc/
+DawPlugin/deps/choc/
+DawPlugin/deps/dpf_widgets/
+DawPlugin/deps/uuid-v4/
